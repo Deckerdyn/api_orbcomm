@@ -6,11 +6,16 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from main import get_or_refresh_token  # importa para que cargue .env y main.py
+from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
 
-# Conexión a MongoDB
+# Fuerza la carga del archivo .env desde el mismo directorio del script
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+print(f"📡 Usando MONGO_URI: {MONGO_URI}")
 client = MongoClient(MONGO_URI)
 db = client["orbcomm_db"]
 positions = db["positions"]

@@ -4,9 +4,12 @@ from pymongo import MongoClient
 from datetime import datetime, timezone
 import requests
 import os
+from dotenv import load_dotenv
+from pathlib import Path
 
-# Carga las variables de entorno
-load_dotenv()
+# Cargar el .env desde el mismo directorio donde está main.py
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Conexión a MongoDB (remoto o local, según el .env)
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
