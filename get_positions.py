@@ -1,20 +1,18 @@
-# get_positions.py
+# get_positions.py (versión automática corregida)
 import asyncio
 import requests
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
-from pymongo import MongoClient
-from main import get_or_refresh_token  # importa para que cargue .env y main.py
-from dotenv import load_dotenv
 from pathlib import Path
+from datetime import datetime, date, timedelta
+from pymongo import MongoClient
+from main import get_or_refresh_token
 
-
-# Fuerza la carga del archivo .env desde el mismo directorio del script
+# ——————————————————————————————
+# 1) Cargo .env y MongoDB
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
-
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGO_URI")
 print(f"📡 Usando MONGO_URI: {MONGO_URI}")
 client = MongoClient(MONGO_URI)
 db = client["orbcomm_db"]
@@ -22,12 +20,30 @@ positions = db["positions"]
 
 ORBCOMM_ASSETS_URL = os.getenv("ORBCOMM_ASSETS_URL")
 
-# Guarda el timestamp de la última llamada
-last_call_time = None
+# Archivo donde guardamos la última fecha procesada
+data_file = Path(__file__).parent / "last_date.txt"
 
+# Función para obtener rango de fechas pendientes (usa fecha local)
+def get_date_range():
+    today_local = date.today()
+    if data_file.exists():
+        last_str = data_file.read_text().strip()
+        last_date = date.fromisoformat(last_str)
+    else:
+        last_date = today_local - timedelta(days=2)
+    start = last_date + timedelta(days=1)
+    # Si start es mayor que hoy, no hay nada que hacer
+    if start > today_local:
+        return None, None, today_local
+    return start, today_local, today_local
+
+# Guarda la fecha final al terminar
+def save_last_date(d: date):
+    data_file.write_text(d.isoformat())
+
+# ——————————————————————————————
+# 2) Coroutine de fetch y store
 async def fetch_and_store(date_str: str, token: str):
-    global last_call_time
-
     payload = {
         "fromDate": f"{date_str}T00:00:00.000-04:00",
         "toDate":   f"{date_str}T23:59:59.000-04:00",
@@ -35,72 +51,66 @@ async def fetch_and_store(date_str: str, token: str):
         "assetGroupNames": [],
         "watermark": None
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": token
-    }
+    headers = {"Content-Type": "application/json", "Authorization": token}
 
-    # Asegura que hayan pasado 5 minutos desde la última llamada
-    if last_call_time:
-        elapsed = (datetime.utcnow() - last_call_time).total_seconds()
-        if elapsed < 300:
-            wait = 300 - elapsed
-            print(f"⏳ Sólo han pasado {int(elapsed)}s desde la última llamada. Esperando {int(wait)}s…")
-            await asyncio.sleep(wait)
-
-    print(f"📤 Llamando getAssetStatus para {date_str}")
+    print(f"📤 Fetch {date_str}")
     resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers)
-    last_call_time = datetime.utcnow()
 
-    # Si devuelve 429, vuelve a esperar 5 minutos y reintenta
     if resp.status_code == 429:
-        print(f"⚠️ 429 Rate limit en {date_str}: {resp.text}")
-        print("🔁 Esperando 5 minutos completos antes de reintentar…")
         await asyncio.sleep(300)
-        # reintenta una vez
         resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers)
-        last_call_time = datetime.utcnow()
 
-    # Si devuelve 401, regeneramos token y reintentar
     if resp.status_code == 401:
-        print(f"⚠️ 401 Invalid token en {date_str}: {resp.text}")
         token = await get_or_refresh_token()
         headers["Authorization"] = token
-        print("🔄 Token renovado, reintentando…")
         resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers)
-        last_call_time = datetime.utcnow()
 
     if resp.status_code != 200:
-        print(f"⚠️ Error {resp.status_code} en {date_str}: {resp.text}")
+        print(f"❌ Error {resp.status_code}: {resp.text}")
         return
 
-    body = resp.json()
-    data = body.get("data", [])
+    data = resp.json().get("data", [])
     if not data:
         print(f"ℹ️ Sin datos en {date_str}")
         return
 
     for rec in data:
         positions.replace_one({"messageId": rec["messageId"]}, rec, upsert=True)
-    print(f"✅ {len(data)} registros insertados para {date_str}")
+    print(f"✅ {len(data)} registros para {date_str}")
 
-async def main():
-    start = datetime(2025, 4, 25)
-    end   = datetime(2025, 4, 25)
-    current = start
+# ——————————————————————————————
+# 3) Función principal: descarga automático de fechas pendientes
+def main():
+    start, end, today_local = get_date_range()
+    if start is None:
+        print(f"ℹ️ Ya estás al día (última fecha procesada: {today_local})")
+        return
 
-    while current <= end:
-        date_s = current.strftime("%Y-%m-%d")
-        print(f"\n📅 Procesando {date_s}")
-        try:
-            token = await get_or_refresh_token()
-            await fetch_and_store(date_s, token)
-        except Exception as e:
-            print(f"❌ Error en {date_s}: {e}")
-        # Marcamos tiempo y luego avanzamos
-        current += timedelta(days=1)
+    print(f"⌛ Descargando de {start.isoformat()} a {end.isoformat()}")
 
-    print("\n🏁 Proceso completado.")
+    async def runner():
+        current = start
+        while current <= end:
+            date_s = current.isoformat()
+            try:
+                token = await get_or_refresh_token()
+                await fetch_and_store(date_s, token)
+            except Exception as e:
+                print(f"❌ Error {date_s}: {e}")
+            current += timedelta(days=1)
+        # marca hasta ayer si end==hoy\ n        mark = end
+        if end == today_local:
+            mark = today_local - timedelta(days=1)
+        save_last_date(mark)
+        print(f"🏁 Completado hasta {end}")
+
+    asyncio.run(runner())
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import time
+    print("🚀 Iniciando ciclo continuo de descarga cada 5 minutos")
+    while True:
+        main()
+        print("⏳ Durmiendo 5 minutos antes del próximo ciclo…")
+        time.sleep(300)  # 300 s = 5 min
+
