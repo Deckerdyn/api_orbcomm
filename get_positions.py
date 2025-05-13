@@ -17,6 +17,7 @@ print(f"📡 Usando MONGO_URI: {MONGO_URI}")
 client = MongoClient(MONGO_URI)
 db = client["orbcomm_db"]
 positions = db["positions"]
+geocerca = db["geocerca"]
 
 ORBCOMM_ASSETS_URL = os.getenv("ORBCOMM_ASSETS_URL")
 
@@ -76,6 +77,9 @@ async def fetch_and_store(date_str: str, token: str):
 
     for rec in data:
         positions.replace_one({"messageId": rec["messageId"]}, rec, upsert=True)
+        geofence_name = rec.get("positionStatus", {}).get("geofenceName")
+        if geofence_name:
+            geocerca.replace_one({"messageId": rec["messageId"]}, rec, upsert=True)
     print(f"✅ {len(data)} registros para {date_str}")
 
 # ——————————————————————————————
