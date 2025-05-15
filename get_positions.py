@@ -76,11 +76,16 @@ async def fetch_and_store(date_str: str, token: str):
         return
 
     for rec in data:
-        positions.replace_one({"messageId": rec["messageId"]}, rec, upsert=True)
         geofence_name = rec.get("positionStatus", {}).get("geofenceName")
+
         if geofence_name:
+            # Mover a geocerca
             geocerca.replace_one({"messageId": rec["messageId"]}, rec, upsert=True)
-    print(f"✅ {len(data)} registros para {date_str}")
+            positions.delete_one({"messageId": rec["messageId"]})
+        else:
+            # Guardar en positions si no tiene geocerca
+            positions.replace_one({"messageId": rec["messageId"]}, rec, upsert=True)
+
 
 # ——————————————————————————————
 # 3) Función principal: descarga automático de fechas pendientes
