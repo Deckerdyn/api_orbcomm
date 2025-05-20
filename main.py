@@ -70,7 +70,14 @@ async def get_or_refresh_token():
 
 @app.get("/token")
 async def read_token():
+    """Devuelve un token vigente, o genera uno nuevo si expiró."""
     token = await get_or_refresh_token()
+    return {"access_token": token}
+
+@app.get("/refreshtoken")
+async def refresh_token():
+    """Fuerza la creación de un nuevo token sin importar expiración."""
+    token = await generate_token_orbcomm()
     return {"access_token": token}
 
 @app.get("/positions")
