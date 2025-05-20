@@ -92,6 +92,13 @@ async def get_positions_by_asset(asset_name: str):
         raise HTTPException(404, f"No se encontraron posiciones para {asset_name}")
     return results
 
+@app.get("/positions/message/{message_id}")
+async def get_position_by_message_id(message_id: str):
+    result = positions_collection.find_one({"messageId": message_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(404, f"No se encontró posición con messageId: {message_id}")
+    return result
+
 @app.get("/geocerca")
 async def get_all_geocerca():
     results = list(geocerca_collection.find({}, {"_id": 0}))
