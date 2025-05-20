@@ -107,7 +107,7 @@ def main():
             except Exception as e:
                 print(f"❌ Error {date_s}: {e}")
             current += timedelta(days=1)
-        # marca hasta ayer si end==hoy\ n        mark = end
+        # marca hasta ayer si end==hoy
         if end == today_local:
             mark = today_local - timedelta(days=1)
         save_last_date(mark)
