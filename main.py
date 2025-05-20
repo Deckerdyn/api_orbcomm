@@ -85,11 +85,14 @@ async def get_all_positions():
     results = list(positions_collection.find({}, {"_id": 0}))
     return results
 
-@app.get("/positions/{asset_name}")
-async def get_positions_by_asset(asset_name: str):
-    results = list(positions_collection.find({"assetName": asset_name}, {"_id": 0}))
+@app.get("/positions/asset/{asset_name}")
+async def get_positions_by_asset_name(asset_name: str):
+    results = list(positions_collection.find(
+        {"assetStatus.assetName": asset_name},
+        {"_id": 0}
+    ))
     if not results:
-        raise HTTPException(404, f"No se encontraron posiciones para {asset_name}")
+        raise HTTPException(status_code=404, detail=f"No se encontraron posiciones para assetName: {asset_name}")
     return results
 
 @app.get("/positions/message/{message_id}")
