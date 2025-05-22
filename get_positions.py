@@ -79,19 +79,20 @@ async def fetch_and_store(date_str: str, token: str):
         geofence_status = rec.get("positionStatus", {}).get("geofenceStatus")
         message_id = rec.get("messageId")
 
-        if geofence_status in ("ARRIVAL", "In"):
-            # Copiar a geocerca y eliminar de positions
+        status = (geofence_status or "").strip().upper()
+
+        if status in ("ARRIVAL", "IN"):
             geocerca.replace_one({"messageId": message_id}, rec, upsert=True)
             positions.delete_one({"messageId": message_id})
 
-        elif geofence_status == "DEPARTURE":
-            # Copiar a geocerca y conservar en positions
+        elif status == "DEPARTURE":
             geocerca.replace_one({"messageId": message_id}, rec, upsert=True)
             positions.replace_one({"messageId": message_id}, rec, upsert=True)
 
         else:
-            # Guardar en positions solamente
-            positions.replace_one({"messageId": message_id}, rec, upsert=True)
+            # Asegúrate de que no sea un duplicado de un ARRIVAL anterior
+            if not geocerca.find_one({"messageId": message_id}):
+                positions.replace_one({"messageId": message_id}, rec, upsert=True)
 
 
 # ——————————————————————————————
