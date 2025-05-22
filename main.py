@@ -82,8 +82,11 @@ async def refresh_token():
     return {"access_token": token}
 
 @app.get("/positions")
-async def get_all_positions():
-    results = list(positions_collection.find({}, {"_id": 0}))
+async def get_positions_ast_demosat():
+    results = list(positions_collection.find(
+        {"assetStatus.assetName": "AST-DEMOSAT"},
+        {"_id": 0, "messageId": 1, "assetStatus": 1, "positionStatus": 1}
+    ))
     return results
 
 @app.get("/positions/asset/{asset_name}")
@@ -109,12 +112,12 @@ async def get_all_geocerca():
     return results
 
 @app.get("/positions/last")
-async def get_last_position():
+async def get_last_position_ast_demosat():
     result = positions_collection.find_one(
-        {"assetStatus.messageStamp": {"$exists": True}},
+        {"assetStatus.assetName": "AST-DEMOSAT"},
         sort=[("assetStatus.messageStamp", DESCENDING)],
-        projection={"_id": 0}
+        projection={"_id": 0, "messageId": 1, "assetStatus": 1, "positionStatus": 1}
     )
     if not result:
-        raise HTTPException(404, "No se encontró ninguna posición con campo 'assetStatus.messageStamp'")
+        raise HTTPException(404, "No se encontró ninguna posición para AST-DEMOSAT")
     return result
