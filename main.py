@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
+from pymongo import DESCENDING
 
 # ——————————————————————————————
 # 1) Cargar variables de entorno y conectar a MongoDB
@@ -106,3 +107,14 @@ async def get_position_by_message_id(message_id: str):
 async def get_all_geocerca():
     results = list(geocerca_collection.find({}, {"_id": 0}))
     return results
+
+@app.get("/positions/last")
+async def get_last_position():
+    result = positions_collection.find_one(
+        {"assetStatus.messageStamp": {"$exists": True}},
+        sort=[("assetStatus.messageStamp", DESCENDING)],
+        projection={"_id": 0}
+    )
+    if not result:
+        raise HTTPException(404, "No se encontró ninguna posición con campo 'assetStatus.messageStamp'")
+    return result
