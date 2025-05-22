@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
 from pymongo import DESCENDING
+import pytz
 
 # ——————————————————————————————
 # 1) Cargar variables de entorno y conectar a MongoDB
@@ -133,9 +134,16 @@ async def get_last_position_time():
     if not result:
         raise HTTPException(404, "No se encontró ninguna posición para AST-DEMOSAT")
 
+    # Usamos el string completo con offset -04:00
     timestamp_str = result["assetStatus"]["messageStamp"]
-    last_update = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")).astimezone(timezone.utc)
-    now = datetime.now(timezone.utc)
+    last_update = datetime.fromisoformat(timestamp_str)
+
+    # Fecha actual con la misma zona horaria (-04:00)
+    now = datetime.now(pytz.timezone("America/Santiago"))
+
+    # Convertimos last_update a la misma zona si fuera necesario
+    if last_update.tzinfo is None:
+        last_update = last_update.replace(tzinfo=pytz.FixedOffset(-240))  # -04:00
 
     elapsed = now - last_update
     elapsed_minutes = int(elapsed.total_seconds() / 60)
