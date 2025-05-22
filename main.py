@@ -121,3 +121,28 @@ async def get_last_position_ast_demosat():
     if not result:
         raise HTTPException(404, "No se encontró ninguna posición para AST-DEMOSAT")
     return result
+
+@app.get("/positions/last/time")
+async def get_last_position_time():
+    result = positions_collection.find_one(
+        {"assetStatus.assetName": "AST-DEMOSAT"},
+        sort=[("assetStatus.messageStamp", DESCENDING)],
+        projection={"_id": 0, "messageId": 1, "assetStatus.messageStamp": 1}
+    )
+
+    if not result:
+        raise HTTPException(404, "No se encontró ninguna posición para AST-DEMOSAT")
+
+    timestamp_str = result["assetStatus"]["messageStamp"]
+    last_update = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")).astimezone(timezone.utc)
+    now = datetime.now(timezone.utc)
+
+    elapsed = now - last_update
+    elapsed_minutes = int(elapsed.total_seconds() / 60)
+
+    return {
+        "last_update": last_update.isoformat(),
+        "now": now.isoformat(),
+        "elapsed_minutes": elapsed_minutes,
+        "message": f"Han pasado {elapsed_minutes} minutos desde la última actualización."
+    }
