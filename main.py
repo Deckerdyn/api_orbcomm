@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime, timezone
@@ -8,6 +8,7 @@ import requests
 import os
 from pymongo import DESCENDING
 import pytz
+from typing import Optional
 
 # ——————————————————————————————
 # 1) Cargar variables de entorno y conectar a MongoDB
@@ -154,3 +155,106 @@ async def get_last_position_time():
         "elapsed_minutes": elapsed_minutes,
         "message": f"Han pasado {elapsed_minutes} minutos desde la última actualización."
     }
+@app.get("/estado-camion")
+def estado_camion():
+    ultimo = positions_collection.find_one(
+        {"impactStatus.moving": {"$exists": True}},
+        sort=[("assetStatus.messageStamp", DESCENDING)]
+    )
+
+    if not ultimo:
+        raise HTTPException(status_code=404, detail="No se encontraron datos del camión.")
+
+    moving_status = ultimo.get("impactStatus", {}).get("moving", "Desconocido")
+    timestamp = ultimo.get("assetStatus", {}).get("messageStamp")
+
+    if timestamp:
+        try:
+            timestamp_dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except:
+            timestamp_dt = timestamp
+    else:
+        timestamp_dt = "Fecha desconocida"
+
+    if moving_status == "Stationary":
+        estado = "detenido"
+    elif moving_status == "Moving":
+        estado = "en movimiento"
+    else:
+        estado = f"estado desconocido ({moving_status})"
+
+    return {
+        "estado": estado,
+        "ultimo_mensaje": timestamp_dt
+    }
+@app.get("/geocerca/estado-reciente")
+def geocerca_estado_reciente(asset_name: Optional[str] = Query(None, alias="assetName")):
+
+    filtro_base = {}
+    if asset_name:
+        filtro_base["assetStatus.assetName"] = asset_name
+
+    # Buscar llegada más reciente (ARRIVAL)
+    filtro_llegada = filtro_base.copy()
+    filtro_llegada["positionStatus.geofenceStatus"] = "ARRIVAL"
+    llegada = geocerca_collection.find_one(
+        filtro_llegada, sort=[("assetStatus.messageStamp", -1)]
+    )
+
+    # Buscar salida más reciente (DEPARTURE)
+    filtro_salida = filtro_base.copy()
+    filtro_salida["positionStatus.geofenceStatus"] = "DEPARTURE"
+    salida = geocerca_collection.find_one(
+        filtro_salida, sort=[("assetStatus.messageStamp", -1)]
+    )
+
+    if not llegada and not salida:
+        raise HTTPException(status_code=404, detail="No se encontraron eventos de entrada o salida.")
+
+    def formatear_evento(evento):
+        if evento is None:
+            return None
+        
+        estado = evento["positionStatus"].get("geofenceStatus", "")
+        
+        if estado == "ARRIVAL":
+            geocerca_nombre = evento["positionStatus"].get("geofenceName", "Desconocida")
+        elif estado == "DEPARTURE":
+            geocerca_nombre = evento["positionStatus"].get("nearestGeofence", "Desconocida")
+        else:
+            geocerca_nombre = "Desconocida"
+
+        return {
+            "hora": evento["assetStatus"].get("messageStamp"),
+            "geocerca": geocerca_nombre,
+            "direccion": {
+                "street": evento["positionStatus"].get("street", "Desconocido"),
+                "city": evento["positionStatus"].get("city", "Desconocido"),
+                "state": evento["positionStatus"].get("state", "Desconocido"),
+                "zipCode": evento["positionStatus"].get("zipCode", "Desconocido"),
+                "country": evento["positionStatus"].get("country", "Desconocido"),
+            }
+        }
+
+    llegada_formateada = formatear_evento(llegada)
+    salida_formateada = formatear_evento(salida)
+
+    # Determinar evento más reciente
+    llegada_time = datetime.fromisoformat(llegada_formateada["hora"].replace("Z", "+00:00")) if llegada_formateada else None
+    salida_time = datetime.fromisoformat(salida_formateada["hora"].replace("Z", "+00:00")) if salida_formateada else None
+
+    if llegada_time and salida_time:
+        evento_reciente = "llegada" if llegada_time > salida_time else "salida"
+    elif llegada_time:
+        evento_reciente = "llegada"
+    elif salida_time:
+        evento_reciente = "salida"
+    else:
+        evento_reciente = None
+
+    return {
+        "llegada": llegada_formateada,
+        "salida": salida_formateada,
+        "evento_reciente": evento_reciente
+    }
+
