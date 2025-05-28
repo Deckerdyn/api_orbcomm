@@ -258,3 +258,22 @@ def geocerca_estado_reciente(asset_name: Optional[str] = Query(None, alias="asse
         "evento_reciente": evento_reciente
     }
 
+# @app.get("/geocerca/ultima-nearest")
+# def ultima_nearest_geofence():
+#     # Obtener el documento más reciente de la colección positions
+#     ultimo = positions_collection.find_one(
+#         {}, sort=[("assetStatus.messageStamp", DESCENDING)]
+#     )
+
+#     if not ultimo:
+#         raise HTTPException(status_code=404, detail="No se encontró ningún dato en positions.")
+
+#     nearest = ultimo.get("positionStatus", {}).get("nearestGeofence")
+
+#     if not nearest:
+#         raise HTTPException(status_code=404, detail="No se encontró nearestGeofence en el último dato.")
+
+#     return {
+#         "nearestGeofence": nearest,
+#         "hora": ultimo["assetStatus"].get("messageStamp")
+#     }
