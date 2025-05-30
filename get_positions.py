@@ -76,20 +76,19 @@ async def fetch_and_store(date_str: str, token: str):
         return
 
     for rec in data:
-    # Convertir messageStamp si está en formato con AM/PM
-        original_stamp = rec.get("messageStamp")
-        if original_stamp:
-            try:
-                if "/" in original_stamp and ("AM" in original_stamp or "PM" in original_stamp):
-                    # Parsear y convertir al formato ISO con zona horaria -04:00
-                    dt = datetime.strptime(original_stamp, "%m/%d/%Y %I:%M:%S %p")
-                    rec["messageStamp"] = dt.strftime("%Y-%m-%dT%H:%M:%S.000-04:00")
-            except Exception as e:
-                print(f"⚠️ No se pudo convertir messageStamp: {original_stamp} -> {e}")
+        # 🔁 Convertir messageStamp en assetStatus, si existe
+        try:
+            message_stamp = rec.get("assetStatus", {}).get("messageStamp")
+            if message_stamp and "/" in message_stamp and ("AM" in message_stamp or "PM" in message_stamp):
+                dt = datetime.strptime(message_stamp, "%m/%d/%Y %I:%M:%S %p")
+                formatted = dt.strftime("%Y-%m-%dT%H:%M:%S.000-04:00")
+                rec["assetStatus"]["messageStamp"] = formatted
+        except Exception as e:
+            print(f"⚠️ Error al convertir assetStatus.messageStamp: {message_stamp} -> {e}")
 
+        # Resto de la lógica
         geofence_status = rec.get("positionStatus", {}).get("geofenceStatus")
         message_id = rec.get("messageId")
-
         status = (geofence_status or "").strip().upper()
 
         if status in ("ARRIVAL", "IN"):
@@ -101,7 +100,6 @@ async def fetch_and_store(date_str: str, token: str):
             positions.replace_one({"messageId": message_id}, rec, upsert=True)
 
         else:
-            # Asegúrate de que no sea un duplicado de un ARRIVAL anterior
             if not geocerca.find_one({"messageId": message_id}):
                 positions.replace_one({"messageId": message_id}, rec, upsert=True)
 
