@@ -76,16 +76,6 @@ async def fetch_and_store(date_str: str, token: str):
         return
 
     for rec in data:
-    # ✅ Normalizar messageStamp si viene en formato no ISO
-        stamp = rec.get("messageStamp")
-        try:
-            if stamp and '/' in stamp:
-                dt = datetime.strptime(stamp, "%m/%d/%Y %I:%M:%S %p")
-                iso_stamp = dt.isoformat() + "-04:00"
-                rec["messageStamp"] = iso_stamp
-        except Exception as e:
-            print(f"⚠️ No se pudo parsear messageStamp '{stamp}': {e}")
-
         geofence_status = rec.get("positionStatus", {}).get("geofenceStatus")
         message_id = rec.get("messageId")
 
