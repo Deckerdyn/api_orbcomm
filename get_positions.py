@@ -17,6 +17,7 @@ print(f"📡 Usando MONGO_URI: {MONGO_URI}")
 client = MongoClient(MONGO_URI)
 db = client["orbcomm_db"]
 positions = db["positions"]
+positions_2 = db["positions_2"]
 geocerca = db["geocerca"]
 
 ORBCOMM_ASSETS_URL = os.getenv("ORBCOMM_ASSETS_URL")
@@ -86,22 +87,28 @@ async def fetch_and_store(date_str: str, token: str):
         except Exception as e:
             print(f"⚠️ Error al convertir assetStatus.messageStamp: {message_stamp} -> {e}")
 
-        # Resto de la lógica
         geofence_status = rec.get("positionStatus", {}).get("geofenceStatus")
         message_id = rec.get("messageId")
+        asset_name = rec.get("assetName")
         status = (geofence_status or "").strip().upper()
+
+        # Seleccionar colección según el assetName
+        if asset_name == "FSKC623020600":
+            target_collection = positions_2
+        else:
+            target_collection = positions
 
         if status in ("ARRIVAL", "IN"):
             geocerca.replace_one({"messageId": message_id}, rec, upsert=True)
-            positions.delete_one({"messageId": message_id})
+            target_collection.delete_one({"messageId": message_id})
 
         elif status == "DEPARTURE":
             geocerca.replace_one({"messageId": message_id}, rec, upsert=True)
-            positions.replace_one({"messageId": message_id}, rec, upsert=True)
+            target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
 
         else:
             if not geocerca.find_one({"messageId": message_id}):
-                positions.replace_one({"messageId": message_id}, rec, upsert=True)
+                target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
 
 
 
