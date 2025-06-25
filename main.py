@@ -34,6 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# conexion postgresql
+from postgres.routes import api_router
+app.include_router(api_router)
+
 # ——————————————————————————————
 # 3) Funciones de token
 async def generate_token_orbcomm():
@@ -277,3 +281,15 @@ def geocerca_estado_reciente(asset_name: Optional[str] = Query(None, alias="asse
 #         "nearestGeofence": nearest,
 #         "hora": ultimo["assetStatus"].get("messageStamp")
 #     }
+@app.get("/positions/last/{deviceSN}")
+async def get_last_positions_by_device_sn(deviceSN: str):
+    results = list(positions_collection.find(
+        {"assetStatus.deviceSN": deviceSN},
+        sort=[("assetStatus.messageStamp", DESCENDING)],
+        projection={"_id": 0}
+    ).limit(10))
+
+    if not results:
+        raise HTTPException(status_code=404, detail=f"No se encontraron posiciones para deviceSN: {deviceSN}")
+
+    return results
