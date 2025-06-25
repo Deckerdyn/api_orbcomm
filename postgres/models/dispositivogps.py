@@ -17,6 +17,7 @@ class DispositivoGPS(Base):
     numero_serie = Column(String)
     fecha_instalacion = Column(Date)
     estado = Column(String)
+    modelo_dispositivo = Column(String)
     
     id_tipodispositivo = Column(Integer, ForeignKey("public.tipodispositivogps.id_tipodispositivo"))
 

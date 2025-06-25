@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import SessionLocal
 from sqlalchemy.future import select
 from typing import List
-from ..schemas.vehiculo import VehiculoSchema
+from ..schemas.vehiculo import VehiculoSchema, VehiculoCreateSchema, VehiculoUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -31,20 +31,21 @@ async def get_vehiculos(
 #POST
 @router.post("/vehiculos")
 async def create_conductor(
-    vehiculo: VehiculoSchema, 
+    vehiculo: VehiculoCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
-    nuevo = Vehiculo(**vehiculo.dict())
-    db.add(nuevo)
+    nuevo_vehiculo = Vehiculo(**vehiculo.dict())
+    db.add(nuevo_vehiculo)
     await db.commit()
+    await db.refresh(nuevo_vehiculo)
     return {"msg": "Vehiculo creado correctamente"}
 
 #PUT
-@router.put("/vehiculos/{id_vehiculo}", response_model=VehiculoSchema)
+@router.put("/vehiculos/{id_vehiculo}")
 async def update_vehiculo(
     id_vehiculo: int, 
-    vehiculo: VehiculoSchema, 
+    vehiculo: VehiculoUpdateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -58,7 +59,7 @@ async def update_vehiculo(
 
     await db.commit()
     await db.refresh(vehiculo_db)
-    return vehiculo_db
+    return {"msg": "Vehiculo actualizado correctamente"}
 
 #DELETE
 @router.delete("/vehiculos/{id_vehiculo}")

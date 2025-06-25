@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.dispositivogps import DispositivoGPSSchema, DispositivoGPSCreateSchema
+from ..schemas.dispositivogps import DispositivoGPSSchema, DispositivoGPSCreateSchema, DispositivoGPSUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -45,14 +45,14 @@ async def create_dispositivogps(
 @router.put("/dispositivogps/{id_dispositivo}", response_model=DispositivoGPSSchema)
 async def update_dispositivogps(
     id_dispositivo: int, 
-    dispositivogps: DispositivoGPSSchema, 
+    dispositivogps: DispositivoGPSUpdateSchema,  
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = proteccion_user # Proteccion rutas 
+    current_user: Usuario = proteccion_user
     ):
     result = await db.execute(select(DispositivoGPS).where(DispositivoGPS.id_dispositivo == id_dispositivo))
     dispositivogps_db = result.scalars().first()
     if not dispositivogps_db:
-        raise HTTPException(status_code=404, detail="DispositivoGPS no encontrada")
+        raise HTTPException(status_code=404, detail="DispositivoGPS no encontrado")
 
     for key, value in dispositivogps.dict(exclude_unset=True).items():
         setattr(dispositivogps_db, key, value)

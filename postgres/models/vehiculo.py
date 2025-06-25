@@ -19,7 +19,7 @@ class Vehiculo(Base):
     modelo = Column(String)
     anio = Column(Integer)
     capacidad_kg = Column(Integer)
-    estado = Column(Enum(EstadoEnum))
+    estado = Column(String)
 
     # Referencias a padres
     empresa = relationship("Empresa", back_populates="vehiculos", lazy="joined")
