@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import date
-from typing import Optional
+from typing import Optional, Dict
 from .tipodispositivogps import TipoDispositivoGPSSchema
 
 class DispositivoGPSCreateSchema(BaseModel):
@@ -10,6 +10,7 @@ class DispositivoGPSCreateSchema(BaseModel):
     estado: str
     modelo_dispositivo: str
     id_tipodispositivo: int
+    
     
 class DispositivoGPSUpdateSchema(BaseModel):
     proveedor: Optional[str] = None
@@ -22,6 +23,7 @@ class DispositivoGPSUpdateSchema(BaseModel):
 class DispositivoGPSSchema(DispositivoGPSCreateSchema):
     id_dispositivo: int
     tipo_dispositivo: TipoDispositivoGPSSchema
+    posicion_gps: Optional[Dict[str, float]] = None
 
     class Config:
         from_attributes = True

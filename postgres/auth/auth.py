@@ -12,7 +12,7 @@ from ..database import SessionLocal
 # Configuración
 SECRET_KEY = "miClaveSecreta"  
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 # Seguridad
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

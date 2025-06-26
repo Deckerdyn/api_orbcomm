@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.empresa import EmpresaSchema
+from ..schemas.empresa import EmpresaSchema, EmpresaCreateSchema, EmpresaUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -29,7 +29,7 @@ async def get_empresas(
 
 @router.post("/empresas", response_model=EmpresaSchema)
 async def create_empresa(
-    empresa: EmpresaSchema, 
+    empresa: EmpresaCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -42,7 +42,7 @@ async def create_empresa(
 @router.put("/empresas/{id_empresa}", response_model=EmpresaSchema)
 async def update_empresa(
     id_empresa: int, 
-    empresa: EmpresaSchema, 
+    empresa: EmpresaUpdateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -72,3 +72,17 @@ async def delete_empresa(
     await db.delete(empresa_db)
     await db.commit()
     return {"detail": "Empresa eliminada"}
+
+#GET especifico empresa
+@router.get("/empresas/{id_empresa}", response_model=EmpresaSchema)
+async def get_empresa(
+    id_empresa: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(Empresa).where(Empresa.id_empresa == id_empresa))
+    empresa_db = result.scalars().first()
+    if not empresa_db:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    return empresa_db

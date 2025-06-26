@@ -5,6 +5,7 @@ from sqlalchemy.future import select
 from typing import List
 from ..schemas.vehiculo import VehiculoSchema, VehiculoCreateSchema, VehiculoUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
+import httpx
 
 # llamadas al modelo
 from ..models.vehiculo import Vehiculo
@@ -87,7 +88,25 @@ async def get_vehiculo(
     ):
     result = await db.execute(select(Vehiculo).where(Vehiculo.id_vehiculo == id_vehiculo))
     vehiculo_db = result.scalars().first()
+    
     if not vehiculo_db:
         raise HTTPException(status_code=404, detail="Vehiculo no encontrado")
+    
+    vehiculo_schema = VehiculoSchema.from_orm(vehiculo_db)
 
-    return vehiculo_db
+    if vehiculo_schema.dispositivo and vehiculo_schema.dispositivo.numero_serie:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "http://10.30.7.14:8000/positions/last/" + vehiculo_schema.dispositivo.numero_serie
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if isinstance(data, list) and data and "positionStatus" in data[0]:
+                vehiculo_schema.dispositivo.posicion_gps = {
+                    "latitud": data[0]["positionStatus"]["latitude"],
+                    "longitud": data[0]["positionStatus"]["longitude"]
+                }
+
+
+    return vehiculo_schema
