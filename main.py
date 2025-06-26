@@ -34,6 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# conexion postgresql
+from postgres.routes import api_router
+app.include_router(api_router)
+
 # ——————————————————————————————
 # 3) Funciones de token
 async def generate_token_orbcomm():
