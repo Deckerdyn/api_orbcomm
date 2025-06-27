@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import SessionLocal
 from sqlalchemy.future import select
@@ -152,6 +152,95 @@ async def delete_trip(
     await db.commit()
     return {"detail": "Trip eliminado"}
 
+@router.get("/trips/batch", response_model=List[TripSchema])
+async def get_multiple_trips(
+    ids: List[int] = Query(..., description="IDs de viajes separados por coma"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(Trip).where(Trip.id_trip.in_(ids)))
+    trips_db = result.scalars().all()
+
+    if not trips_db:
+        raise HTTPException(status_code=404, detail="No se encontraron viajes.")
+
+    async with httpx.AsyncClient() as client:
+        for trip in trips_db:
+            if trip.vehiculo and trip.vehiculo.dispositivo:
+                try:
+                    response = await client.get(
+                        f"{ipServidor}/positions/last/{trip.vehiculo.dispositivo.numero_serie}"
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if (
+                            isinstance(data, list)
+                            and len(data) > 0
+                            and data[0].get("positionStatus")
+                        ):
+                            trip.vehiculo.dispositivo.posicion_gps = {
+                                "latitud": data[0]["positionStatus"]["latitude"],
+                                "longitud": data[0]["positionStatus"]["longitude"]
+                            }
+                        else:
+                            trip.vehiculo.dispositivo.posicion_gps = None
+                    else:
+                        trip.vehiculo.dispositivo.posicion_gps = None
+                except Exception:
+                    trip.vehiculo.dispositivo.posicion_gps = None
+
+            # Cálculo de porcentaje y ETA
+            if (
+                trip.vehiculo and
+                trip.vehiculo.dispositivo and
+                trip.vehiculo.dispositivo.posicion_gps and
+                trip.ruta and
+                trip.ruta.origen and
+                trip.ruta.destino and
+                trip.ruta.origen.latitud is not None and
+                trip.ruta.origen.longitud is not None and
+                trip.ruta.destino.latitud is not None and
+                trip.ruta.destino.longitud is not None
+            ):
+                lat_actual = trip.vehiculo.dispositivo.posicion_gps["latitud"]
+                lon_actual = trip.vehiculo.dispositivo.posicion_gps["longitud"]
+
+                distancia_total_km = haversine(
+                    trip.ruta.origen.latitud,
+                    trip.ruta.origen.longitud,
+                    trip.ruta.destino.latitud,
+                    trip.ruta.destino.longitud
+                )
+                distancia_recorrida_km = haversine(
+                    trip.ruta.origen.latitud,
+                    trip.ruta.origen.longitud,
+                    lat_actual,
+                    lon_actual
+                )
+
+                velocidad_kmh = 70
+                tiempo_horas = distancia_recorrida_km / velocidad_kmh
+                tiempo_estimado = timedelta(hours=tiempo_horas)
+
+                fecha_llegada_estim = (
+                    trip.fecha_salida_prog + tiempo_estimado
+                    if trip.fecha_salida_prog else None
+                )
+
+                trip.tiempo_estimado_horas = round(tiempo_horas, 2)
+                trip.fecha_llegada_estim = fecha_llegada_estim
+
+                porcentaje_viaje = (distancia_recorrida_km / distancia_total_km) * 100
+                porcentaje_viaje = max(0, min(round(porcentaje_viaje, 2), 100))
+                trip.porcentaje_viaje = porcentaje_viaje
+                trip.distancia_total_km = round(distancia_total_km, 2)
+            else:
+                trip.porcentaje_viaje = None
+                trip.tiempo_estimado_horas = None
+                trip.fecha_llegada_estim = None
+                trip.distancia_total_km = None
+
+    return trips_db
 
 #GET especifico trip
 @router.get("/trips/{id_trip}", response_model=TripSchema)
@@ -233,9 +322,13 @@ async def get_trip(
         porcentaje_viaje = (distancia_recorrida_km / distancia_total_km) * 100
         porcentaje_viaje = max(0, min(round(porcentaje_viaje, 2), 100))  
         trip_db.porcentaje_viaje = porcentaje_viaje
+        trip_db.distancia_total_km = round(distancia_total_km, 2)
     else:
         trip_db.porcentaje_viaje = None
         trip_db.tiempo_estimado_horas = None
         trip_db.fecha_llegada_estim = None
+        trip_db.distancia_total_km = None
 
     return trip_db
+
+
