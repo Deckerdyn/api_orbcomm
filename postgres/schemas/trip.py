@@ -43,6 +43,7 @@ class TripSchema(TripCreateSchema):
     tiempo_estimado_horas: Optional[float] = None
     fecha_llegada_estim: Optional[datetime] = None
     porcentaje_viaje: Optional[float] = None
+    distancia_total_km: Optional[float] = None
 
     class Config:
         from_attributes = True
