@@ -5,13 +5,13 @@ import enum
 from datetime import datetime
 
 
-class EstadoEnum(enum.Enum):
-    activo = "activo"
-    inactivo = "inactivo"
+# class EstadoEnum(enum.Enum):
+#     activo = "activo"
+#     inactivo = "inactivo"
 
-class RolEnum(enum.Enum):
-    admin = "admin"
-    usuario = "usuario"
+# class RolEnum(enum.Enum):
+#     admin = "admin"
+#     usuario = "usuario"
 
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -24,7 +24,7 @@ class Usuario(Base):
     password_hash = Column(String, nullable=False)
     fecha_registro = Column(DateTime, default=datetime.utcnow)
     # rol = Column(Enum(RolEnum), default=RolEnum.admin)
-    estado = Column(Enum(EstadoEnum), default=EstadoEnum.activo)
+    estado = Column(String , default="activo")
 
     # Referencias foreign keys -> hijos
     conductores = relationship("Conductor", back_populates="usuario")

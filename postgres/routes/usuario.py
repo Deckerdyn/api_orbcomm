@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.usuario import UsuarioSchema
+from ..schemas.usuario import UsuarioSchema, UsuarioCreateSchema, UsuarioUpdateSchema
 from ..auth.auth import get_current_user
 
 
@@ -38,7 +38,7 @@ def hash_password(password: str) -> str:
 
 @router.post("/usuarios", response_model=UsuarioSchema)
 async def create_usuario(
-    usuario: UsuarioSchema, 
+    usuario: UsuarioCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user # Proteccion rutas 
     ):
@@ -53,7 +53,7 @@ async def create_usuario(
 @router.put("/usuarios/{id_usuario}", response_model=UsuarioSchema)
 async def update_usuario(
     id_usuario: int,
-    usuario: UsuarioSchema,
+    usuario: UsuarioUpdateSchema,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user # Proteccion rutas 
     ):

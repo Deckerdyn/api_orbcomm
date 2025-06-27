@@ -216,11 +216,26 @@ async def get_trip(
             lat_actual,
             lon_actual
         )
+        
+        velocidad_kmh = 70
+        tiempo_horas = distancia_recorrida_km / velocidad_kmh
+        tiempo_estimado = timedelta(hours=tiempo_horas)
+
+        if trip_db.fecha_salida_prog:
+            fecha_llegada_estim = trip_db.fecha_salida_prog + tiempo_estimado
+        else:
+            fecha_llegada_estim = None
+
+        # Agregamos dinámicamente los campos al objeto
+        trip_db.tiempo_estimado_horas = round(tiempo_horas, 2)
+        trip_db.fecha_llegada_estim = fecha_llegada_estim
 
         porcentaje_viaje = (distancia_recorrida_km / distancia_total_km) * 100
-        porcentaje_viaje = max(0, min(round(porcentaje_viaje, 2), 100))  # clamp 0-100
+        porcentaje_viaje = max(0, min(round(porcentaje_viaje, 2), 100))  
         trip_db.porcentaje_viaje = porcentaje_viaje
     else:
         trip_db.porcentaje_viaje = None
+        trip_db.tiempo_estimado_horas = None
+        trip_db.fecha_llegada_estim = None
 
     return trip_db
