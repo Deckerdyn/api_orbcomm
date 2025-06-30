@@ -114,7 +114,7 @@ async def create_trip(
     db.add(trip_db)
     await db.commit()    
     await db.refresh(trip_db)
-    return trip_db
+    return {"msg": "Viaje creado correctamente"}
 
 #PUT
 @router.put("/trips/{id_trip}", response_model=TripSchema)

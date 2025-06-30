@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from datetime import datetime
 from typing import Optional
 from ..schemas.ruta import RutaSchema
@@ -8,7 +8,6 @@ from ..schemas.estadoViaje import EstadoViajeSchema
 
 
 class TripCreateSchema(BaseModel):
-    id_trip: int
     fecha_registro: datetime
     fecha_salida_prog: datetime
     fecha_llegada_estim: datetime
@@ -19,6 +18,22 @@ class TripCreateSchema(BaseModel):
     id_empresa: int
     id_vehiculo: int
     id_estado: int
+    
+    @validator(
+        "fecha_registro",
+        "fecha_salida_prog",
+        "fecha_llegada_estim",
+        "fecha_salida_real",
+        "fecha_llegada_real",
+        pre=True
+    )
+    
+    def strip_tz(cls, value):
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if value and value.tzinfo:
+            return value.astimezone(tz=None).replace(tzinfo=None)
+        return value
     
 class TripUpdateSchema(BaseModel):
     fecha_registro: Optional[datetime] = None
