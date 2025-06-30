@@ -26,12 +26,14 @@ geocerca_collection = db["geocerca"]
 # 2) Crear app FastAPI y permitir CORS
 app = FastAPI()
 
-# Permitir acceso desde React
+frontend_origin = "https://strack.wisensor.cl"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[frontend_origin],  # Solo el dominio permitido
+    allow_credentials=True,           # Permite cookies y auth headers
+    allow_methods=["*"],              # Métodos permitidos
+    allow_headers=["*"],              # Headers permitidos
 )
 
 # conexion postgresql
