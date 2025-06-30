@@ -9,6 +9,7 @@ import os
 from pymongo import DESCENDING
 import pytz
 from typing import Optional
+from math import radians, cos, sin, asin, sqrt
 
 # ——————————————————————————————
 # 1) Cargar variables de entorno y conectar a MongoDB
@@ -26,14 +27,12 @@ geocerca_collection = db["geocerca"]
 # 2) Crear app FastAPI y permitir CORS
 app = FastAPI()
 
-frontend_origin = "https://strack.wisensor.cl"
-
+# Permitir acceso desde React
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin],  # Solo el dominio permitido
-    allow_credentials=True,           # Permite cookies y auth headers
-    allow_methods=["*"],              # Métodos permitidos
-    allow_headers=["*"],              # Headers permitidos
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # conexion postgresql
@@ -295,3 +294,67 @@ async def get_last_positions_by_device_sn(deviceSN: str):
         raise HTTPException(status_code=404, detail=f"No se encontraron posiciones para deviceSN: {deviceSN}")
 
     return results
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Calcula distancia entre dos puntos GPS en km"""
+    R = 6371  # Radio de la Tierra en km
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    return R * c
+
+@app.get("/positions/nearest/{device_sn}")
+def nearest_device(device_sn: str):
+    # 1. Obtener la última posición del dispositivo consultado
+    origen = positions_collection.find_one(
+        {"assetStatus.deviceSN": device_sn},
+        sort=[("assetStatus.messageStamp", DESCENDING)]
+    )
+    if not origen:
+        raise HTTPException(404, f"No se encontró dispositivo con deviceSN: {device_sn}")
+
+    lat1 = origen.get("positionStatus", {}).get("latitude")
+    lon1 = origen.get("positionStatus", {}).get("longitude")
+
+    if lat1 is None or lon1 is None:
+        raise HTTPException(400, f"Dispositivo {device_sn} no tiene coordenadas GPS válidas")
+
+    # 2. Buscar otros dispositivos con coordenadas válidas
+    otros = positions_collection.find({
+        "assetStatus.deviceSN": {"$ne": device_sn},
+        "positionStatus.latitude": {"$ne": None},
+        "positionStatus.longitude": {"$ne": None}
+    })
+
+    # 3. Calcular distancias y encontrar el más cercano
+    mas_cercano = None
+    menor_distancia = float("inf")
+
+    for doc in otros:
+        lat2 = doc["positionStatus"]["latitude"]
+        lon2 = doc["positionStatus"]["longitude"]
+        dist = haversine(lat1, lon1, lat2, lon2)
+        if dist < menor_distancia:
+            menor_distancia = dist
+            mas_cercano = doc
+
+    if not mas_cercano:
+        raise HTTPException(404, "No se encontró ningún otro dispositivo con ubicación válida")
+
+    return {
+        "dispositivo_consultado": {
+            "deviceSN": device_sn,
+            "ubicacion": origen["positionStatus"].get("address"),
+            "coordenadas": [lat1, lon1]
+        },
+        "dispositivo_mas_cercano": {
+            "deviceSN": mas_cercano["assetStatus"]["deviceSN"],
+            "ubicacion": mas_cercano["positionStatus"].get("address"),
+            "coordenadas": [
+                mas_cercano["positionStatus"]["latitude"],
+                mas_cercano["positionStatus"]["longitude"]
+            ],
+            "distancia_km": round(menor_distancia, 2)
+        }
+    }
