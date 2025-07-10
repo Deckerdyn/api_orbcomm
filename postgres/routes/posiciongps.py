@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.posiciongps import PosicionGPSSchema
+from ..schemas.posiciongps import PosicionGPSSchema, PosicionGPSCreateSchema, PosicionGPSUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -29,22 +29,26 @@ async def get_posiciongps(
     return posiciongps
 
 #POST
-@router.post("/posiciongps", response_model=PosicionGPSSchema)
+@router.post("/posiciongps")
 async def create_posiciongps(
-    posiciongps: PosicionGPSSchema, 
+    posiciongps: PosicionGPSCreateSchema,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
     new_posiciongps = PosicionGPS(**posiciongps.dict())
     db.add(new_posiciongps)
     await db.commit()    
-    return new_posiciongps
+    return {
+            "data": new_posiciongps,
+            "res" : True,
+            "msg": "PosicionGPS creado correctamente"
+        }
 
 #PUT
-@router.put("/posiciongps/{id_posiciongps}", response_model=PosicionGPSSchema)
+@router.put("/posiciongps/{id_posiciongps}")
 async def update_posiciongps(
     id_posiciongps: int, 
-    posiciongps: PosicionGPSSchema, 
+    posiciongps: PosicionGPSUpdateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -58,7 +62,11 @@ async def update_posiciongps(
 
     await db.commit()
     await db.refresh(posiciongps_db)
-    return posiciongps_db
+    return {
+            "data": posiciongps_db,
+            "res" : True,
+            "msg": "PosicionGPS actualizado correctamente"
+        }
 
 #DELETE
 @router.delete("/posiciongps/{id_posiciongps}")
@@ -74,4 +82,26 @@ async def delete_posiciongps(
 
     await db.delete(posiciongps_db)
     await db.commit()
-    return {"detail": "PosicionGPS eliminado"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "PosicionGPS eliminado"
+        }
+
+# GET especifico posiciongps
+@router.get("/posiciongps/{id_posiciongps}")
+async def get_posiciongps(
+    id_posiciongps: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(PosicionGPS).where(PosicionGPS.id_registro == id_posiciongps))
+    posiciongps_db = result.scalars().first()
+    if not posiciongps_db:
+        raise HTTPException(status_code=404, detail="PosicionGPS no encontrado")
+
+    return {
+        "data": posiciongps_db,
+        "res" : True,
+        "msg": "PosicionGPS obtenido correctamente"
+    }

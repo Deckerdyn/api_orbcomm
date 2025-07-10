@@ -14,6 +14,7 @@ class Vehiculo(Base):
     id_vehiculo = Column(Integer, primary_key=True, index=True)
     id_empresa = Column(Integer, ForeignKey("public.empresas.id_empresa"))
     id_dispositivo = Column(Integer, ForeignKey("public.dispositivo_gps.id_dispositivo"))
+    id_tipo_vehiculo = Column(Integer, ForeignKey("public.tipo_vehiculos.id_tipo_vehiculo"))
 
     placa = Column(String)
     modelo = Column(String)
@@ -24,6 +25,8 @@ class Vehiculo(Base):
     # Referencias a padres
     empresa = relationship("Empresa", back_populates="vehiculos", lazy="joined")
     dispositivo = relationship("DispositivoGPS", back_populates="vehiculos", lazy="joined")
+    tipo_vehiculo = relationship("TipoVehiculo", back_populates="vehiculos", lazy="joined")
+
 
     # Referencias foreign keys -> hijos
     trips = relationship("Trip", back_populates="vehiculo")

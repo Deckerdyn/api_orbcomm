@@ -22,6 +22,7 @@ db = client["orbcomm_db"]
 tokens_collection = db["tokens"]
 positions_collection = db["positions"]
 geocerca_collection = db["geocerca"]
+geocerca_establecidas = db["geocerca_preestablecida"]
 
 # ——————————————————————————————
 # 2) Crear app FastAPI y permitir CORS
@@ -358,3 +359,31 @@ def nearest_device(device_sn: str):
             "distancia_km": round(menor_distancia, 2)
         }
     }
+    
+@app.get("/geocerca/establecidas")
+async def geocercas():
+    pipeline = [
+        {
+            "$project": {
+                "_id": 0,
+                "name": 1,
+                "category" : 1,
+                "color": 1,
+                "coordinates": 1,
+                "cantidadCordenadas": { "$size": "$coordinates" },
+                "tipoPoligono": {
+                    "$switch": {
+                        "branches": [
+                            { "case": { "$eq": [{ "$size": "$coordinates" }, 3] }, "then": "Triángulo" },
+                            { "case": { "$eq": [{ "$size": "$coordinates" }, 4] }, "then": "Cuadrado" },
+                            { "case": { "$eq": [{ "$size": "$coordinates" }, 5] }, "then": "Pentágono" },
+                            { "case": { "$eq": [{ "$size": "$coordinates" }, 6] }, "then": "Hexágono" },
+                        ],
+                        "default": "Polígono irregular"
+                    }
+                }
+            }
+        }
+    ]  
+    results = list(geocerca_establecidas.aggregate(pipeline))
+    return results

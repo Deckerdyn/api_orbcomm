@@ -23,6 +23,8 @@ from .vehiculoconductor import router as vehiculoconductor_router
 from .paradasautorizadas import router as paradasautorizadas_router
 from .rutaparada import router as rutaparada_router
 from .tipodispositivogps import router as tipodispositivosgps_router
+from .tipovehiculo import router as tipovehiculo_router
+from .triplog import router as triplog_router
 
 from .login import router as login_router
 from .devicetrackgps import router as devicetrackgps_router
@@ -52,6 +54,8 @@ api_router.include_router(vehiculoconductor_router)
 api_router.include_router(paradasautorizadas_router)
 api_router.include_router(rutaparada_router)
 api_router.include_router(tipodispositivosgps_router)
+api_router.include_router(tipovehiculo_router)
+api_router.include_router(triplog_router)
 
 api_router.include_router(login_router)
 api_router.include_router(devicetrackgps_router)

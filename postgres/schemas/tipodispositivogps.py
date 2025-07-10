@@ -3,6 +3,9 @@ from datetime import date
 
 class TipoDispositivoGPSCreateSchema(BaseModel):
     nombre: str
+    
+class TipoDispositivoGPSUpdateSchema(BaseModel):
+    nombre: str
 
 class TipoDispositivoGPSSchema(TipoDispositivoGPSCreateSchema):
     id_tipodispositivo: int

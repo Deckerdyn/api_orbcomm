@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.ubicacion import UbicacionSchema
+from ..schemas.ubicacion import UbicacionSchema, UbicacionCreateSchema, UbicacionUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -18,6 +18,7 @@ async def get_db():
     async with SessionLocal() as session:
         yield session
 
+# GET
 @router.get("/ubicacion", response_model=List[UbicacionSchema])
 async def get_ubicacion(
     db: AsyncSession = Depends(get_db),
@@ -27,9 +28,10 @@ async def get_ubicacion(
     ubicaciaones = result.scalars().all()
     return ubicaciaones
 
-@router.post("/ubicacion", response_model=UbicacionSchema)
+# POST
+@router.post("/ubicacion")
 async def create_ubicacion(
-    ubicacion: UbicacionSchema, 
+    ubicacion: UbicacionCreateSchema,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -37,12 +39,17 @@ async def create_ubicacion(
     db.add(new_ubicacion)
     await db.commit()
     await db.refresh(new_ubicacion)
-    return new_ubicacion
+    return {
+        "data": new_ubicacion,
+        "res" : True,
+        "msg": "Ubicacion creada correctamente"
+    }
 
-@router.put("/ubicacion/{id_ubicacion}", response_model=UbicacionSchema)
+# PUT
+@router.put("/ubicacion/{id_ubicacion}")
 async def update_ubicacion(
     id_ubicacion: int, 
-    ubicacion: UbicacionSchema, 
+    ubicacion: UbicacionUpdateSchema,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -56,8 +63,13 @@ async def update_ubicacion(
 
     await db.commit()
     await db.refresh(ubicacion_db)
-    return ubicacion_db
+    return {
+        "data": ubicacion_db,
+        "res" : True,
+        "msg": "Ubicacion actualizada correctamente"
+    }
 
+# DELETE
 @router.delete("/ubicacion/{id_ubicacion}")
 async def delete_ubicacion(
     id_ubicacion: int, 
@@ -71,4 +83,26 @@ async def delete_ubicacion(
 
     await db.delete(ubicacion_db)
     await db.commit()
-    return {"detail": "Ubicacion eliminada"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "Ubicacion eliminada"
+        }
+
+# GET especifico ubicacion
+@router.get("/ubicacion/{id_ubicacion}")
+async def get_ubicacion(
+    id_ubicacion: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(Ubicacion).where(Ubicacion.id_ubicacion == id_ubicacion))
+    ubicacion_db = result.scalars().first()
+    if not ubicacion_db:
+        raise HTTPException(status_code=404, detail="Ubicacion no encontrada")
+
+    return {
+        "data": ubicacion_db,
+        "res" : True,
+        "msg": "Ubicacion obtenida correctamente"
+    }

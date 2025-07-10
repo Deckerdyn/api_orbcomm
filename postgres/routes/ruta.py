@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.ruta import RutaSchema
+from ..schemas.ruta import RutaSchema, RutaCreateSchema, RutaUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -19,6 +19,7 @@ async def get_db():
         yield session
 
 
+# GET
 @router.get("/rutas", response_model=List[RutaSchema])
 async def get_rutas(
     db: AsyncSession = Depends(get_db),
@@ -28,9 +29,10 @@ async def get_rutas(
     rutas = result.scalars().all()
     return rutas
 
-@router.post("/rutas", response_model=RutaSchema)
+# POST
+@router.post("/rutas")
 async def create_ruta(
-    ruta: RutaSchema, 
+    ruta: RutaCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -38,12 +40,17 @@ async def create_ruta(
     db.add(new_ruta)
     await db.commit()
     await db.refresh(new_ruta)
-    return new_ruta
+    return {
+        "data": new_ruta,
+        "res" : True,
+        "msg": "Ruta creada correctamente"
+    }
 
-@router.put("/rutas/{id_ruta}", response_model=RutaSchema)
+# PUT
+@router.put("/rutas/{id_ruta}")
 async def update_ruta(
     id_ruta: int, 
-    ruta: RutaSchema, 
+    ruta: RutaUpdateSchema,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -57,8 +64,13 @@ async def update_ruta(
 
     await db.commit()
     await db.refresh(ruta_db)
-    return ruta_db
+    return {
+        "data": ruta_db,
+        "res" : True,
+        "msg": "Ruta actualizada correctamente"
+    }
 
+# DELETE
 @router.delete("/rutas/{id_ruta}")
 async def delete_ruta(
     id_ruta: int, 
@@ -72,5 +84,26 @@ async def delete_ruta(
 
     await db.delete(ruta_db)
     await db.commit()
-    return {"detail": "Ruta eliminada"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "Ruta eliminada correctamente"
+        }
+    
+# GET especifico ruta
+@router.get("/rutas/{id_ruta}")
+async def get_ruta(
+    id_ruta: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(Ruta).where(Ruta.id_ruta == id_ruta))
+    ruta_db = result.scalars().first()
+    if not ruta_db:
+        raise HTTPException(status_code=404, detail="Ruta no encontrada")
 
+    return {
+        "data": ruta_db,
+        "res" : True,
+        "msg": "Ruta obtenida correctamente"
+    }

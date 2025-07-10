@@ -59,7 +59,7 @@ async def get_dispositivogps(
     return newDispoitivo
 
 #POST
-@router.post("/dispositivogps", response_model=DispositivoGPSSchema)
+@router.post("/dispositivogps")
 async def create_dispositivogps(
     dispositivogps: DispositivoGPSCreateSchema, 
     db: AsyncSession = Depends(get_db),
@@ -69,7 +69,11 @@ async def create_dispositivogps(
     db.add(new_dispositivogps)
     await db.commit()    
     await db.refresh(new_dispositivogps)
-    return new_dispositivogps
+    return {
+            "data": new_dispositivogps,
+            "res" : True,
+            "msg": "DispositivoGPS creado correctamente"
+        }
 
 #PUT
 @router.put("/dispositivogps/{id_dispositivo}", response_model=DispositivoGPSSchema)
@@ -89,7 +93,11 @@ async def update_dispositivogps(
 
     await db.commit()
     await db.refresh(dispositivogps_db)
-    return dispositivogps_db
+    return {
+            "data": dispositivogps_db,
+            "res" : True,
+            "msg": "DispositivoGPS actualizado correctamente"
+        }
 
 #DELETE
 @router.delete("/dispositivogps/{id_dispositivo}")
@@ -105,4 +113,27 @@ async def delete_dispositivogps(
 
     await db.delete(dispositivogps_db)
     await db.commit()
-    return {"detail": "DispositivoGPS eliminado"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "DispositivoGPS eliminado"
+        }
+
+# GET especifico dispositivogps
+@router.get("/dispositivogps/{id_dispositivo}")
+async def get_dispositivogps(
+    id_dispositivo: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(DispositivoGPS).where(DispositivoGPS.id_dispositivo == id_dispositivo))
+    dispositivogps_db = result.scalars().first()
+    
+    if not dispositivogps_db:
+        raise HTTPException(status_code=404, detail="DispositivoGPS no encontrado")
+    
+    return {
+        "data": dispositivogps_db,
+        "res" : True,
+        "msg": "DispositivoGPS obtenido correctamente"
+    }

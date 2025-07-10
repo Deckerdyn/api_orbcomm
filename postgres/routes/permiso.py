@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.permiso import PermisoSchema
+from ..schemas.permiso import PermisoSchema, PermisoCreateSchema, PermisoUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -30,9 +30,9 @@ async def get_permisos(
     return permisos
 
 #POST
-@router.post("/permisos", response_model=PermisoSchema)
+@router.post("/permisos")
 async def create_permisos(
-    permiso: PermisoSchema, 
+    permiso: PermisoCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -40,13 +40,17 @@ async def create_permisos(
     db.add(new_permiso)
     await db.commit()
     await db.refresh(new_permiso)
-    return new_permiso
+    return {
+            "data": new_permiso,
+            "res" : True,
+            "msg": "Permiso creado correctamente"
+        }
 
 #PUT
-@router.put("/permisos/{id_permiso}", response_model=PermisoSchema)
+@router.put("/permisos/{id_permiso}")
 async def update_permisos(
     id_permiso: int, 
-    permiso: PermisoSchema, 
+    permiso: PermisoUpdateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -60,7 +64,11 @@ async def update_permisos(
 
     await db.commit()
     await db.refresh(permiso_db)
-    return permiso_db
+    return {
+        "data": permiso_db,
+        "res" : True,
+        "msg": "Permiso actualizado correctamente"
+    }
 
 #DELETE
 @router.delete("/permisos/{id_permiso}")
@@ -76,4 +84,26 @@ async def delete_permisos(
 
     await db.delete(permiso_db)
     await db.commit()
-    return {"detail": "Permiso eliminado"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "Permiso eliminado"
+        }
+    
+# GET especifico permiso
+@router.get("/permisos/{id_permiso}")
+async def get_permiso(
+    id_permiso: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(Permiso).where(Permiso.id_permiso == id_permiso))
+    permiso_db = result.scalars().first()
+    if not permiso_db:
+        raise HTTPException(status_code=404, detail="Permiso no encontrado")
+
+    return {
+        "data": permiso_db,
+        "res" : True,
+        "msg": "Permiso obtenido correctamente"
+    }

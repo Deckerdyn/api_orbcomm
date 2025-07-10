@@ -40,7 +40,11 @@ async def create_conductor(
     db.add(nuevo_vehiculo)
     await db.commit()
     await db.refresh(nuevo_vehiculo)
-    return {"msg": "Vehiculo creado correctamente"}
+    return {
+        "data": nuevo_vehiculo,
+        "res" : True,
+        "msg": "Vehiculo creado correctamente"
+    }
 
 #PUT
 @router.put("/vehiculos/{id_vehiculo}")
@@ -60,7 +64,11 @@ async def update_vehiculo(
 
     await db.commit()
     await db.refresh(vehiculo_db)
-    return {"msg": "Vehiculo actualizado correctamente"}
+    return {
+        "data": vehiculo_db,
+        "res" : True,  
+        "msg": "Vehiculo actualizado correctamente"
+    }
 
 #DELETE
 @router.delete("/vehiculos/{id_vehiculo}")
@@ -76,11 +84,15 @@ async def delete_vehiculo(
 
     await db.delete(vehiculo_db)
     await db.commit()
-    return {"detail": "Vehiculo eliminado"}
+    return {
+            "data": None,
+            "res": True,
+            "msg": "Vehiculo Eliminado"
+        }
 
 
 # GET Especifico vehiculo
-@router.get("/vehiculos/{id_vehiculo}", response_model=VehiculoSchema)
+@router.get("/vehiculos/{id_vehiculo}")
 async def get_vehiculo(
     id_vehiculo: int,
     db: AsyncSession = Depends(get_db),
@@ -109,4 +121,8 @@ async def get_vehiculo(
                 }
 
 
-    return vehiculo_schema
+    return {
+            "data": vehiculo_schema,
+            "res" : True,
+            "msg": "Vehiculo obtenido correctamente"
+        }

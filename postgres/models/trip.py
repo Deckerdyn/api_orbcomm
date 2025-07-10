@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, Text, String
 from sqlalchemy.orm import relationship
 from ..database import Base
 from datetime import datetime
@@ -15,6 +15,7 @@ class Trip(Base):
     fecha_salida_real = Column(DateTime, nullable=True)
     fecha_llegada_real = Column(DateTime, nullable=True)
     comentarios = Column(Text, nullable=True)
+    estado = Column(String, default="activo")
 
     id_ruta = Column(Integer, ForeignKey("public.rutas.id_ruta"))
     id_empresa = Column(Integer, ForeignKey("public.empresas.id_empresa"))
@@ -25,10 +26,12 @@ class Trip(Base):
     ruta = relationship("Ruta", back_populates="trips", lazy="joined")
     empresa = relationship("Empresa", back_populates="trips", lazy="joined")
     vehiculo = relationship("Vehiculo", back_populates="trips", lazy="joined")
-    estado = relationship("EstadoViaje", back_populates="trips", lazy="joined")
+    estado_viaje = relationship("EstadoViaje", back_populates="trips", lazy="joined")
+    
 
     # Referencias foreign keys -> hijos
     posicion_gps = relationship("PosicionGPS", back_populates="trip")
     resumen_trip = relationship("ResumenTrip", back_populates="trip")
     trip_tramo = relationship("TripTramo", back_populates="trip")
     trip_conductores = relationship("TripConductor", back_populates="trip")
+    # logs = relationship("TripLog", back_populates="trip")

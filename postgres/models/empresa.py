@@ -14,11 +14,12 @@ class Empresa(Base):
     
     id_empresa = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
+    rut = Column(String, nullable=True)
     direccion = Column(String, nullable=True)
     telefono_contacto = Column(String, nullable=True)
     email = Column(String, nullable=True)
     fecha_registro = Column(DateTime, default=datetime.utcnow)
-    estado = Column(Enum(EstadoEnum), default=EstadoEnum.activo)
+    estado = Column(String, default="activo")
     
     # Referencias foreign keys -> hijos
     conductores = relationship("Conductor", back_populates="empresa")

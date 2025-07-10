@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from typing import List
 from geoalchemy2.shape import to_shape
 from ..database import SessionLocal
-from ..schemas.paradasautorizadas import ParadasAutorizadasSchema
+from ..schemas.paradasautorizadas import ParadasAutorizadasSchema, ParadasAutorizadasCreateSchema, ParadasAutorizadasUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -51,9 +51,9 @@ async def get_paradasautorizadas(
 #     return paradas_serializadas
 
 #POST
-@router.post("/paradasautorizadas", response_model=ParadasAutorizadasSchema)
+@router.post("/paradasautorizadas")
 async def create_paradasautorizadas(
-    paradasautorizadas: ParadasAutorizadasSchema, 
+    paradasautorizadas: ParadasAutorizadasCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -61,13 +61,17 @@ async def create_paradasautorizadas(
     db.add(new_paradasautorizadas)
     await db.commit()
     await db.refresh(new_paradasautorizadas)
-    return new_paradasautorizadas
+    return {
+            "data": new_paradasautorizadas,
+            "res" : True,
+            "msg": "Paradas autorizada creado correctamente"
+        }
 
 #PUT
-@router.put("/paradasautorizadas/{id_paradasautorizadas}", response_model=ParadasAutorizadasSchema)
+@router.put("/paradasautorizadas/{id_paradasautorizadas}")
 async def update_paradasautorizadas(
     id_paradasautorizadas: int, 
-    paradasautorizadas: ParadasAutorizadasSchema, 
+    paradasautorizadas: ParadasAutorizadasUpdateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -81,7 +85,11 @@ async def update_paradasautorizadas(
 
     await db.commit()
     await db.refresh(paradasautorizadas_db)
-    return paradasautorizadas_db
+    return {
+            "data": paradasautorizadas_db,
+            "res" : True,
+            "msg": "Paradas autorizada actualizada correctamente"
+        }
 
 #DELETE
 @router.delete("/paradasautorizadas/{id_paradasautorizadas}")
@@ -97,4 +105,26 @@ async def delete_paradasautorizadas(
 
     await db.delete(paradasautorizadas_db)
     await db.commit()    
-    return {"detail": "ParadasAutorizadas eliminado"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "Paradas autorizada eliminada correctamente"
+        }
+    
+# GET especifico paradasautorizadas
+@router.get("/paradasautorizadas/{id_paradasautorizadas}")
+async def get_paradasautorizadas(
+    id_paradasautorizadas: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(ParadasAutorizadas).where(ParadasAutorizadas.id_paradasautorizadas == id_paradasautorizadas))
+    paradasautorizadas_db = result.scalars().first()
+    if not paradasautorizadas_db:
+        raise HTTPException(status_code=404, detail="ParadasAutorizadas no encontrado")
+
+    return {
+        "data": paradasautorizadas_db,
+        "res" : True,
+        "msg": "Paradas autorizada obtenida correctamente"
+    }

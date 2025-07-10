@@ -21,3 +21,5 @@ from .vehiculoconductor import VehiculoConductor
 from .paradasautorizadas import ParadasAutorizadas
 from .rutaparada import RutaParada
 from .tipodispositivogps import TipoDispositivoGPS
+from .triplog import TripLog
+from .tipovehiculo import TipoVehiculo
