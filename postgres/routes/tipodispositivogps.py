@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.tipodispositivogps import TipoDispositivoGPSSchema, TipoDispositivoGPSCreateSchema
+from ..schemas.tipodispositivogps import TipoDispositivoGPSSchema, TipoDispositivoGPSCreateSchema, TipoDispositivoGPSUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -29,7 +29,7 @@ async def get_tipodispositivogps(
     return tipodispositivogps
 
 #POST
-@router.post("/tipodispositivogps", response_model=TipoDispositivoGPSSchema)
+@router.post("/tipodispositivogps")
 async def create_tipodispositivogps(
     tipodispositivogps: TipoDispositivoGPSCreateSchema, 
     db: AsyncSession = Depends(get_db),
@@ -39,13 +39,17 @@ async def create_tipodispositivogps(
     db.add(new_tipodispositivogps)
     await db.commit()    
     await db.refresh(new_tipodispositivogps)
-    return new_tipodispositivogps
+    return {
+            "data": new_tipodispositivogps,
+            "res" : True,
+            "msg": "TipoDispositivoGPS creado correctamente"
+        }
 
 #PUT
-@router.put("/tipodispositivogps/{id_tipodispositivo}", response_model=TipoDispositivoGPSSchema)
+@router.put("/tipodispositivogps/{id_tipodispositivo}")
 async def update_tipodispositivogps(
     id_tipodispositivo: int, 
-    tipodispositivogps: TipoDispositivoGPSSchema, 
+    tipodispositivogps: TipoDispositivoGPSUpdateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user # Proteccion rutas 
     ):
@@ -59,7 +63,11 @@ async def update_tipodispositivogps(
 
     await db.commit()
     await db.refresh(tipodispositivogps_db)
-    return tipodispositivogps_db
+    return {
+            "data": tipodispositivogps_db,
+            "res" : True,
+            "msg": "TipoDispositivoGPS actualizado correctamente"
+        }
 
 #DELETE
 @router.delete("/tipodispositivogps/{id_tipodispositivo}")
@@ -75,4 +83,26 @@ async def delete_tipodispositivogps(
 
     await db.delete(tipodispositivogps_db)
     await db.commit()
-    return {"detail": "TipoDispositivoGPS eliminado"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "TipoDispositivoGPS eliminado"
+        }
+    
+# GET especifico tipodispositivogps
+@router.get("/tipodispositivogps/{id_tipodispositivo}")
+async def get_tipodispositivogps(
+    id_tipodispositivo: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(TipoDispositivoGPS).where(TipoDispositivoGPS.id_tipodispositivo == id_tipodispositivo))
+    tipodispositivogps_db = result.scalars().first()
+    if not tipodispositivogps_db:
+        raise HTTPException(status_code=404, detail="TipoDispositivoGPS no encontrado")
+
+    return {
+        "data": tipodispositivogps_db,
+        "res" : True,
+        "msg": "TipoDispositivoGPS obtenido correctamente"
+    }

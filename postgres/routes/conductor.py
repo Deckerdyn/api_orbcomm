@@ -39,10 +39,14 @@ async def create_conductor(
     nuevo = Conductor(**conductor.dict())
     db.add(nuevo)
     await db.commit()
-    return {"msg": "Conductor creado correctamente"}
+    return {
+        "data": nuevo,
+        "res" : True,
+        "msg": "Conductor creado correctamente"
+        }
 
 #PUT
-@router.put("/conductores/{id_conductor}", response_model=ConductorSchema)
+@router.put("/conductores/{id_conductor}")
 async def update_conductor(
     id_conductor: int, 
     conductor: ConductorUpdateSchema,
@@ -59,7 +63,11 @@ async def update_conductor(
 
     await db.commit()
     await db.refresh(conductor_db)
-    return conductor_db
+    return {
+        "data": conductor_db,
+        "res" : True,
+        "msg": "Conductor actualizado correctamente"
+        }
 
 #DELETE
 @router.delete("/conductores/{id_conductor}")
@@ -75,10 +83,14 @@ async def delete_conductor(
 
     await db.delete(conductor_db)
     await db.commit()
-    return {"detail": "Conductor eliminado"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "Conductor eliminado"
+        }
 
 #GET especifico conductor
-@router.get("/conductores/{id_conductor}", response_model=ConductorSchema)
+@router.get("/conductores/{id_conductor}")
 async def get_conductor(
     id_conductor: int,
     db: AsyncSession = Depends(get_db),
@@ -89,4 +101,9 @@ async def get_conductor(
     if not conductor_db:
         raise HTTPException(status_code=404, detail="Conductor no encontrado")
 
-    return conductor_db
+    return {
+        "data": conductor_db,
+        "res" : True,
+        "msg": "Conductor obtenido correctamente"
+    }
+    

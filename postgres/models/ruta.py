@@ -14,7 +14,7 @@ class Ruta(Base):
     id_ruta = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
     descripcion = Column(Text, nullable=True)
-    estado = Column(Enum(EstadoEnum), default=EstadoEnum.activo)
+    estado = Column(String, default="activo")
 
     id_origen = Column(Integer, ForeignKey("public.ubicaciones.id_ubicacion"))
     id_destino = Column(Integer ,ForeignKey("public.ubicaciones.id_ubicacion"))
@@ -27,3 +27,4 @@ class Ruta(Base):
     trips = relationship("Trip", back_populates="ruta")
     ruta_tramo = relationship("RutaTramo", back_populates="ruta")
     ruta_parada = relationship("RutaParada", back_populates="ruta")
+    

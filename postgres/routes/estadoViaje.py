@@ -19,6 +19,7 @@ async def get_db():
         yield session
 
 
+# GET 
 @router.get("/estadoViajes", response_model=List[EstadoViajeSchema])
 async def get_estadoViajes(
     db: AsyncSession = Depends(get_db),
@@ -28,7 +29,8 @@ async def get_estadoViajes(
     estadoViajes = result.scalars().all()
     return estadoViajes
 
-@router.post("/estadoViajes", response_model=EstadoViajeSchema)
+# POST
+@router.post("/estadoViajes")
 async def create_estadoViaje(
     estadoViaje: EstadoViajeSchema, 
     db: AsyncSession = Depends(get_db),
@@ -38,9 +40,14 @@ async def create_estadoViaje(
     db.add(new_estadoViaje)
     await db.commit()
     await db.refresh(new_estadoViaje)
-    return new_estadoViaje
+    return {
+        "data": new_estadoViaje,
+        "res" : True,
+        "msg": "EstadoViaje creado correctamente"
+    }
 
-@router.put("/estadoViajes/{id_estado}", response_model=EstadoViajeSchema)
+# PUT
+@router.put("/estadoViajes/{id_estado}")
 async def update_estadoViaje(
     id_estado: int, 
     estadoViaje: EstadoViajeSchema, 
@@ -57,8 +64,13 @@ async def update_estadoViaje(
 
     await db.commit()
     await db.refresh(estadoViaje_db)
-    return estadoViaje_db
+    return {
+            "data": estadoViaje_db,
+            "res" : True,
+            "msg": "EstadoViaje actualizado correctamente"
+        }
 
+# DELETE
 @router.delete("/estadoViajes/{id_estado}")
 async def delete_estadoViaje(
     id_estado: int, 
@@ -72,5 +84,27 @@ async def delete_estadoViaje(
 
     await db.delete(estadoViaje_db)
     await db.commit()
-    return {"detail": "Empresa eliminada"}
+    return {
+            "data": None,
+            "res" : True,
+            "msg": "EstadoViaje eliminado"
+        }
 
+
+# GET especifico estadoViaje
+@router.get("/estadoViajes/{id_estado}")
+async def get_estadoViaje(
+    id_estado: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    result = await db.execute(select(EstadoViaje).where(EstadoViaje.id_estado == id_estado))
+    estadoViaje_db = result.scalars().first()
+    if not estadoViaje_db:
+        raise HTTPException(status_code=404, detail="EstadoViaje no encontrado")
+
+    return {
+        "data": estadoViaje_db,
+        "res" : True,
+        "msg": "EstadoViaje obtenido correctamente"
+    }

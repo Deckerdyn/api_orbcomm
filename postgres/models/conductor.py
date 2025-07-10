@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Date, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey
+from datetime import datetime
 from sqlalchemy.orm import relationship
 from ..database import Base
 import enum
@@ -16,10 +17,10 @@ class Conductor(Base):
     id_usuario = Column(Integer, ForeignKey("public.usuarios.id_usuario"))
 
     licencia_numero = Column(String)
-    fecha_expiracion = Column(Date)
+    fecha_expiracion = Column(DateTime, default=datetime.utcnow)
     telefono_contacto = Column(String)
-    fecha_contratacion = Column(Date)
-    estado = Column(Enum(EstadoEnum))
+    fecha_contratacion = Column(DateTime, default=datetime.utcnow)
+    estado = Column(String, default="activo")
 
     # Referencias a padres
     usuario = relationship("Usuario", back_populates="conductores", lazy="joined")

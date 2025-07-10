@@ -11,5 +11,5 @@ class EstadoViaje(Base):
     descripcion = Column(String, nullable=True)
 
     # Referencias foreign keys -> hijos
-    trips = relationship("Trip", back_populates="estado")
+    trips = relationship("Trip", back_populates="estado_viaje")
     trip_tramo = relationship("TripTramo", back_populates="estado")

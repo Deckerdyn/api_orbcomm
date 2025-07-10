@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
@@ -18,6 +19,7 @@ async def get_db():
     async with SessionLocal() as session:
         yield session
 
+# GET
 @router.get("/empresas", response_model=List[EmpresaSchema])
 async def get_empresas(
     db: AsyncSession = Depends(get_db),
@@ -27,18 +29,25 @@ async def get_empresas(
     empresas = result.scalars().all()
     return empresas
 
-@router.post("/empresas", response_model=EmpresaSchema)
+# POST
+@router.post("/empresas")
 async def create_empresa(
     empresa: EmpresaCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
+    
     new_empresa = Empresa(**empresa.dict(exclude_unset=True))
     db.add(new_empresa)
     await db.commit()
     await db.refresh(new_empresa)
-    return new_empresa
+    return {
+        "date": new_empresa,
+        "res" : True,
+        "msg": "Empresa creada correctamente"
+    }
 
+# PUT
 @router.put("/empresas/{id_empresa}", response_model=EmpresaSchema)
 async def update_empresa(
     id_empresa: int, 
@@ -56,8 +65,13 @@ async def update_empresa(
 
     await db.commit()
     await db.refresh(empresa_db)
-    return empresa_db
+    return {
+        "date": empresa_db,
+        "res" : True,
+        "msg": "Empresa actualizada correctamente"
+    }
 
+# DELETE
 @router.delete("/empresas/{id_empresa}")
 async def delete_empresa(
     id_empresa: int, 
@@ -71,7 +85,11 @@ async def delete_empresa(
 
     await db.delete(empresa_db)
     await db.commit()
-    return {"detail": "Empresa eliminada"}
+    return {
+        "date": None,
+        "res" : True,
+        "msg": "Empresa eliminada correctamente"
+        }
 
 #GET especifico empresa
 @router.get("/empresas/{id_empresa}", response_model=EmpresaSchema)
