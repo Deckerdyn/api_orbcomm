@@ -17,7 +17,7 @@ class Ubicacion(Base):
     direccion = Column(String, nullable=True)
     latitud = Column(Float)
     longitud = Column(Float)
-    tipo = Column(Enum(TipoEnum), default=TipoEnum.origen)
+    tipo = Column(String, default="origen")
     
 
     # Referencias foreign keys -> hijos
