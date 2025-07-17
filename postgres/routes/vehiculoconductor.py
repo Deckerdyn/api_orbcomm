@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 from ..database import SessionLocal
-from ..schemas.vehiculoconductor import VehiculoConductorSchema
+from ..schemas.vehiculoconductor import VehiculoConductorSchema, VehiculoConductorCreateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 
 # llamadas al modelo
@@ -29,9 +29,9 @@ async def get_vehiculoconductores(
     return vehiculoconductores
 
 #POST
-@router.post("/vehiculoconductores", response_model=VehiculoConductorSchema)
+@router.post("/vehiculoconductores")
 async def create_vehiculoconductores(
-    vehiculoconductores: VehiculoConductorSchema, 
+    vehiculoconductores: VehiculoConductorCreateSchema, 
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = proteccion_user
     ):
@@ -39,7 +39,11 @@ async def create_vehiculoconductores(
     db.add(new_vehiculoconductores)
     await db.commit()
     await db.refresh(new_vehiculoconductores)
-    return new_vehiculoconductores
+    return {
+            "data": new_vehiculoconductores,
+            "res" : True,
+            "msg": "VehiculoConductor creado correctamente"
+        }
 
 #PUT
 @router.put("/vehiculoconductores/{id_vehiculoconductores}", response_model=VehiculoConductorSchema)
