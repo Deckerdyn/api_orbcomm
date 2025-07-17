@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import text
 from typing import List
 from ..database import SessionLocal
 from ..schemas.ubicacion import UbicacionSchema, UbicacionCreateSchema, UbicacionUpdateSchema
@@ -17,7 +18,7 @@ proteccion_user = Depends(get_current_user) # Proteccion rutas
 async def get_db():
     async with SessionLocal() as session:
         yield session
-
+        
 # GET
 @router.get("/ubicacion", response_model=List[UbicacionSchema])
 async def get_ubicacion(
@@ -105,4 +106,23 @@ async def get_ubicacion(
         "data": ubicacion_db,
         "res" : True,
         "msg": "Ubicacion obtenida correctamente"
+    }
+    
+    
+@router.get("/cambiar_enum_a_varchar")
+async def cambiar_enum_a_varchar(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = proteccion_user
+    ):
+    query = text("""
+        ALTER TABLE ubicaciones
+        ALTER COLUMN tipo TYPE VARCHAR
+        USING tipo::VARCHAR;
+    """)
+    await db.execute(query)
+    await db.commit()
+    
+    return {
+        "res" : True,
+        "msg": "Tipo de Ubicacion cambiado a VARCHAR"
     }
