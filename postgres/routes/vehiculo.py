@@ -3,9 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import SessionLocal
 from sqlalchemy.future import select
 from typing import List
+from dotenv import load_dotenv
 from ..schemas.vehiculo import VehiculoSchema, VehiculoCreateSchema, VehiculoUpdateSchema
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 import httpx
+import os
+
+load_dotenv()
+
+ipServidor = os.getenv("IPSERVIDOR")
 
 # llamadas al modelo
 from ..models.vehiculo import Vehiculo
@@ -108,17 +114,32 @@ async def get_vehiculo(
 
     if vehiculo_schema.dispositivo and vehiculo_schema.dispositivo.numero_serie:
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "http://10.30.7.14:8000/positions/last/" + vehiculo_schema.dispositivo.numero_serie
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            if isinstance(data, list) and data and "positionStatus" in data[0]:
-                vehiculo_schema.dispositivo.posicion_gps = {
-                    "latitud": data[0]["positionStatus"]["latitude"],
-                    "longitud": data[0]["positionStatus"]["longitude"]
-                }
+            if vehiculo_schema.dispositivo.modelo_dispositivo != "globalmini":
+                response = await client.get(
+                    "http://10.30.7.14:8002/positions/last/" + vehiculo_schema.dispositivo.numero_serie
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                if isinstance(data, list) and data and "positionStatus" in data[0]:
+                    vehiculo_schema.dispositivo.posicion_gps = {
+                        "latitud": data[0]["positionStatus"]["latitude"],
+                        "longitud": data[0]["positionStatus"]["longitude"]
+                    }
+            else:
+                response = await client.get(
+                    "http://10.30.7.14:8002/globalMini/ultimaPosicion/" + vehiculo_schema.dispositivo.numero_serie
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                if isinstance(data, dict) and "Latitude" and "Longitude" in data:
+                    vehiculo_schema.dispositivo.posicion_gps = {
+                        "latitud": data["Latitude"],
+                        "longitud": data["Longitude"]
+                    }
+                
 
 
     return {

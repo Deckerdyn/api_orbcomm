@@ -24,6 +24,10 @@ positions_collection = db["positions"]
 geocerca_collection = db["geocerca"]
 geocerca_establecidas = db["geocerca_preestablecida"]
 
+MONGO_URI_GLOBALSTAR = os.getenv("MONGO_URI_GLOBALSTAR", "mongodb://admin:admin123@10.20.7.31:27017/")
+client_globalstar = MongoClient(MONGO_URI_GLOBALSTAR)
+db_globalstar = client_globalstar["globalStar"]
+dataglobalmini_collection = db_globalstar["datos"]
 # ——————————————————————————————
 # 2) Crear app FastAPI y permitir CORS
 app = FastAPI()
@@ -161,6 +165,107 @@ async def get_last_position_time():
         "elapsed_minutes": elapsed_minutes,
         "message": f"Han pasado {elapsed_minutes} minutos desde la última actualización."
     }
+    
+# GlobalMini
+@app.get("/globalMini/ultimaPosicion/{esn}")
+async def get_last_position_globalmini(esn: str):
+    result = dataglobalmini_collection.find_one(
+        {"esn": esn},
+        sort=[("_id", -1)]    
+    )
+    if not result:
+        raise HTTPException(404, "No se encontró ninguna posición para Global Star")
+    
+    if "_id" in result:
+        result["_id"] = str(result["_id"])
+        
+    return result
+
+@app.get("/api/globalMini/dataFechaHora/{fecha_hora}")
+async def get_data_globalmini(fecha_hora: str):
+    date_time_limit = datetime.strptime(fecha_hora, "%Y-%m-%dT%H:%M")
+    
+    # 2. Creamos el pipeline de agregación para filtrar eficientemente en la BD.
+    pipeline = [
+        # El operador $addFields crea un campo temporal 'parsed_date'
+        # que convierte el string 'time_stamp' a un objeto BSON Date.
+        {
+            "$addFields": {
+                "parsed_date": {
+                    "$dateFromString": {
+                        "dateString": "$time_stamp",
+                        "format": "%d/%m/%Y %H:%M:%S GMT",
+                        "onNull": None # Maneja documentos sin el campo time_stamp
+                    }
+                }
+            }
+        },
+        # **FILTRO NUEVO:** Esta etapa elimina los documentos con latitud y longitud en cero
+        {
+            "$match": {
+                "$or": [
+                    {"Latitude": {"$ne": 0}},
+                    {"Longitude": {"$ne": 0}}
+                ]
+            }
+        },
+        # El operador $match filtra los documentos donde 'parsed_date'
+        # es mayor o igual que la fecha y hora límite.
+        {
+            "$match": {
+                "parsed_date": {"$gte": date_time_limit}
+            }
+        },
+        # Ordenamos los resultados por fecha de forma ascendente.
+        {
+            "$sort": {
+                "parsed_date": 1
+            }
+        },
+        # Opcional: Proyectamos el documento para excluir el campo temporal.
+        {
+            "$project": {
+                "parsed_date": 0,
+                "message_id": 0,
+                "esn": 0,
+                "unixTime": 0,
+                "gps": 0,
+                "payload_raw": 0,
+                "payload_raw": 0,
+                "Battery State": 0,
+                "GPS Data Valid": 0,
+                "Global Message Type": 0,
+                "Missed Input 1 State Change": 0,
+                "Missed Input 2 State Change": 0,
+                "GPS Fail Counter": 0,
+                "Input 1 Change": 0,
+                "Input 1 State": 0,
+                "Input 2 Change": 0,
+                "Input 2 State": 0,
+                "Message Sub-Type": 0,
+                "Vibration Triggered Message": 0,
+                "Vibration State": 0,
+                "GPS Fix Type": 0,
+                "Motion State": 0,
+                "Fix Confidence": 0,
+                "payload_length": 0,
+                "payload_source": 0,
+                "payload_encoding": 0
+            }
+        }
+    ]
+    
+    try:
+        results = list(dataglobalmini_collection.aggregate(pipeline))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al ejecutar la consulta en la base de datos: {e}")
+    
+    # 4. Hacemos que el _id sea un string para que pueda ser serializado en JSON.
+    for result in results:
+        result["_id"] = str(result["_id"])
+    
+    return results
+
 @app.get("/estado-camion")
 def estado_camion():
     ultimo = positions_collection.find_one(

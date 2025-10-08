@@ -29,6 +29,8 @@ from .triplog import router as triplog_router
 from .login import router as login_router
 from .devicetrackgps import router as devicetrackgps_router
 
+from .newpoint import router as newpoint_router
+
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(empresa_router)
@@ -59,3 +61,5 @@ api_router.include_router(triplog_router)
 
 api_router.include_router(login_router)
 api_router.include_router(devicetrackgps_router)
+
+api_router.include_router(newpoint_router)
