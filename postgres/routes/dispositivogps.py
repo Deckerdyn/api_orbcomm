@@ -35,27 +35,48 @@ async def get_dispositivogps(
     for dispositivo in dispositivogps:
         dispositivogps_schema = DispositivoGPSSchema.from_orm(dispositivo)
         
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{ipServidor}/positions/last/{dispositivogps_schema.numero_serie}"
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                if dispositivogps_schema.modelo_dispositivo != "globalmini":
+                    response = await client.get(
+                        f"{ipServidor}/positions/last/{dispositivogps_schema.numero_serie}"                    
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
 
-                if (
-                    isinstance(data, list) and 
-                    len(data) > 0 and 
-                    data[0].get("positionStatus")
-                ):
-                    dispositivogps_schema.posicion_gps = {
-                        "latitud": data[0]["positionStatus"]["latitude"],
-                        "longitud": data[0]["positionStatus"]["longitude"]
-                    }
-            else:
-                dispositivogps_schema.posicion_gps = None
+                        if (
+                            isinstance(data, list) and 
+                            len(data) > 0 and 
+                            data[0].get("positionStatus")
+                        ):
+                            dispositivogps_schema.posicion_gps = {
+                                "latitud": data[0]["positionStatus"]["latitude"],
+                                "longitud": data[0]["positionStatus"]["longitude"]
+                            }
+                    else:
+                        dispositivogps_schema.posicion_gps = None
+                else:
+                    response = await client.get(
+                        f"{ipServidor}/globalMini/ultimaPosicion/" + dispositivogps_schema.numero_serie
+                    )
+                    
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    if isinstance(data, dict) and "Latitude" and "Longitude" in data:
+                        dispositivogps_schema.posicion_gps = {
+                            "latitud": data["Latitude"],
+                            "longitud": data["Longitude"]
+                        }
+                
+                
 
+                newDispoitivo.append(dispositivogps_schema)
+        except httpx.RequestError as e:
+            dispositivogps_schema.posicion_gps = None
             newDispoitivo.append(dispositivogps_schema)
+            print(f"Error en la solicitud HTTP: {e}")
     return newDispoitivo
 
 #POST

@@ -64,23 +64,27 @@ async def get_trips(
     for trip_db in trips:
         # Obtener posición GPS desde API externa si hay dispositivo
         if trip_db.vehiculo and trip_db.vehiculo.dispositivo:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{ipServidor}/positions/last/{trip_db.vehiculo.dispositivo.numero_serie}"
-                ) 
-                if response.status_code == 200:
-                    data = response.json()
-                    if (
-                        isinstance(data, list) and
-                        len(data) > 0 and
-                        data[0].get("positionStatus")
-                    ):
-                        trip_db.vehiculo.dispositivo.posicion_gps = {
-                            "latitud": data[0]["positionStatus"]["latitude"],
-                            "longitud": data[0]["positionStatus"]["longitude"]
-                        }
-                else:
-                    trip_db.vehiculo.dispositivo.posicion_gps = None
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{ipServidor}/positions/last/{trip_db.vehiculo.dispositivo.numero_serie}"
+                    ) 
+                    if response.status_code == 200:
+                        data = response.json()
+                        if (
+                            isinstance(data, list) and
+                            len(data) > 0 and
+                            data[0].get("positionStatus")
+                        ):
+                            trip_db.vehiculo.dispositivo.posicion_gps = {
+                                "latitud": data[0]["positionStatus"]["latitude"],
+                                "longitud": data[0]["positionStatus"]["longitude"]
+                            }
+                    else:
+                        trip_db.vehiculo.dispositivo.posicion_gps = None
+            except httpx.RequestError as e:
+                trip_db.vehiculo.dispositivo.posicion_gps = None
+                print(f"Error en la solicitud HTTP: {e}")
 
         # Calcular ETA si origen y destino son válidos
         if (
@@ -295,6 +299,7 @@ async def get_multiple_trips(
     ):
     result = await db.execute(select(Trip).where(Trip.id_trip.in_(ids)))
     trips_db = result.scalars().all()
+        
 
     if not trips_db:
         raise HTTPException(status_code=404, detail="No se encontraron viajes.")
