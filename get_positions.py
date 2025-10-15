@@ -55,7 +55,7 @@ async def fetch_and_store(date_str: str, from_hour: int, to_hour: int, token: st
     for attempt in range(1, max_retries+1):
         try:
             print(f"📤 Fetch {date_str} {from_hour:02d}-{to_hour:02d} (Intento {attempt})")
-            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=30)
+            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=600)
 
             if resp.status_code == 401:
                 token = await get_or_refresh_token()
