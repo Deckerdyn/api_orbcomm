@@ -41,21 +41,21 @@ def save_last_date(d: date):
     data_file.write_text(d.isoformat())
 
 # ——————————————————————————————
-# Coroutine de fetch y store con reintentos por franja horaria
-async def fetch_and_store(date_str: str, start_hour: int, end_hour: int, token: str, max_retries=3):
+# Coroutine de fetch y store con reintentos
+async def fetch_and_store(date_str: str, from_hour: int, to_hour: int, token: str, max_retries=3):
     payload = {
-        "fromDate": f"{date_str}T{start_hour:02d}:00:00.000-04:00",
-        "toDate":   f"{date_str}T{end_hour:02d}:00:00.000-04:00",
+        "fromDate": f"{date_str}T{from_hour:02d}:00:00.000-04:00",
+        "toDate":   f"{date_str}T{to_hour:02d}:00:00.000-04:00",
         "assetNames": [],
         "assetGroupNames": [],
         "watermark": None
     }
     headers = {"Content-Type": "application/json", "Authorization": token}
 
-    for attempt in range(1, max_retries + 1):
+    for attempt in range(1, max_retries+1):
         try:
-            print(f"📤 Fetch {date_str} {start_hour:02d}-{end_hour:02d} (Intento {attempt})")
-            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=300)
+            print(f"📤 Fetch {date_str} {from_hour:02d}-{to_hour:02d} (Intento {attempt})")
+            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=30)
 
             if resp.status_code == 401:
                 token = await get_or_refresh_token()
@@ -63,12 +63,12 @@ async def fetch_and_store(date_str: str, start_hour: int, end_hour: int, token: 
                 continue
 
             if resp.status_code in (423, 429):
-                print(f"⚠️ Error {resp.status_code}: demasiadas solicitudes o polling frecuente, esperando 5 min...")
+                print(f"⚠️ Error {resp.status_code}: demasiadas solicitudes o polling frecuente, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
             if resp.status_code == 504:
-                print(f"⚠️ Error 504 Gateway Time-out, esperando 5 min...")
+                print(f"⚠️ Error 504 Gateway Time-out, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
@@ -78,7 +78,7 @@ async def fetch_and_store(date_str: str, start_hour: int, end_hour: int, token: 
 
             data = resp.json().get("data", [])
             if not data:
-                print(f"ℹ️ Sin datos en {date_str} {start_hour:02d}-{end_hour:02d}")
+                print(f"ℹ️ Sin datos en {date_str} {from_hour:02d}-{to_hour:02d}")
                 return
 
             # — Procesar registros —
@@ -95,6 +95,7 @@ async def fetch_and_store(date_str: str, start_hour: int, end_hour: int, token: 
                 message_id = rec.get("messageId")
                 asset_name = rec.get("assetName")
                 status = (geofence_status or "").strip().upper()
+
                 target_collection = positions_2 if asset_name == "FSKC623020600" else positions
 
                 if status in ("ARRIVAL", "IN"):
@@ -107,13 +108,13 @@ async def fetch_and_store(date_str: str, start_hour: int, end_hour: int, token: 
                     if not geocerca.find_one({"messageId": message_id}):
                         target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
 
-            break  # ✅ Si salió bien
+            break  # ✅ Si salió bien, rompe el bucle de reintentos
 
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Intento {attempt} fallido: {e}")
             await asyncio.sleep(300)
 
-    # Pausa entre franjas para cumplir la política de polling de 5 minutos
+    # Pausa entre franjas para cumplir la política de polling
     await asyncio.sleep(300)
 
 # ——————————————————————————————
@@ -132,14 +133,15 @@ def main():
             date_s = current.isoformat()
             try:
                 token = await get_or_refresh_token()
-                # Iterar por franjas horarias de 4 horas
-                for start_hour, end_hour in [(0,4),(4,8),(8,12),(12,16),(16,20),(20,24)]:
-                    await fetch_and_store(date_s, start_hour, end_hour, token)
+                # Franjas de 2 horas
+                for from_h in range(0, 24, 2):
+                    to_h = from_h + 2
+                    await fetch_and_store(date_s, from_h, to_h, token)
+                # Guardar progreso solo si todas las franjas se completaron
+                save_last_date(current)
             except Exception as e:
                 print(f"❌ Error {date_s}: {e}")
             current += timedelta(days=1)
-            # Guarda progreso por día
-            save_last_date(current - timedelta(days=1))
 
         print(f"🏁 Completado hasta {end}")
 
