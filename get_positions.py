@@ -114,10 +114,10 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
 
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Intento {attempt} fallido: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(300)
 
     # Pausa corta entre fechas para no saturar la API
-    await asyncio.sleep(5)
+    await asyncio.sleep(300)
 
 # ——————————————————————————————
 # Función principal
