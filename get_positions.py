@@ -1,4 +1,4 @@
-# get_positions_safe.py
+# get_positions.py
 import asyncio
 import requests
 import os
@@ -21,7 +21,6 @@ positions_2 = db["positions_2"]
 geocerca = db["geocerca"]
 
 ORBCOMM_ASSETS_URL = os.getenv("ORBCOMM_ASSETS_URL")
-
 data_file = Path(__file__).parent / "last_date.txt"
 
 # ——————————————————————————————
@@ -56,7 +55,7 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
     for attempt in range(1, max_retries+1):
         try:
             print(f"📤 Fetch {date_str} (Intento {attempt})")
-            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=30)
+            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=300)
 
             if resp.status_code == 401:
                 token = await get_or_refresh_token()
@@ -64,12 +63,12 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
                 continue
 
             if resp.status_code == 423:
-                print(f"⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 10s...")
+                print(f"⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 5 min...")
                 await asyncio.sleep(300)
                 continue
 
             if resp.status_code == 504:
-                print(f"⚠️ Error 504 Gateway Time-out, esperando 10s...")
+                print(f"⚠️ Error 504 Gateway Time-out, esperando 5 min...")
                 await asyncio.sleep(300)
                 continue
 
@@ -109,15 +108,13 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
                     if not geocerca.find_one({"messageId": message_id}):
                         target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
 
-            # ✅ Si llegó hasta aquí, salió bien
-            break
+            break  # ✅ Si salió bien, salir del loop de reintentos
 
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Intento {attempt} fallido: {e}")
             await asyncio.sleep(300)
 
-    # Pausa corta entre fechas para no saturar la API
-    await asyncio.sleep(300)
+    await asyncio.sleep(300)  
 
 # ——————————————————————————————
 # Función principal
@@ -132,16 +129,25 @@ def main():
     async def runner():
         current = start
         while current <= end:
-            date_s = current.isoformat()
-            try:
-                token = await get_or_refresh_token()
-                await fetch_and_store(date_s, token)
-            except Exception as e:
-                print(f"❌ Error {date_s}: {e}")
-            current += timedelta(days=1)
+            # Descarga por bloques de 5 días
+            block_end = min(current + timedelta(days=4), end)
+            date_block = []
+            temp = current
+            while temp <= block_end:
+                date_block.append(temp)
+                temp += timedelta(days=1)
 
-            # Guarda progreso cada fecha
-            save_last_date(current - timedelta(days=1))
+            token = await get_or_refresh_token()
+            for d in date_block:
+                date_s = d.isoformat()
+                try:
+                    await fetch_and_store(date_s, token)
+                except Exception as e:
+                    print(f"❌ Error {date_s}: {e}")
+
+            # Guarda el progreso del último día del bloque
+            save_last_date(block_end)
+            current = block_end + timedelta(days=1)
 
         print(f"🏁 Completado hasta {end}")
 
