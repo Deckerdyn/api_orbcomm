@@ -114,7 +114,7 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
             print(f"⚠️ Intento {attempt} fallido: {e}")
             await asyncio.sleep(300)
 
-    await asyncio.sleep(5)  # Pausa corta entre fechas
+    await asyncio.sleep(300)  
 
 # ——————————————————————————————
 # Función principal
