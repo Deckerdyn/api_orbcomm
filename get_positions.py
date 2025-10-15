@@ -9,7 +9,7 @@ from pymongo import MongoClient
 from main import get_or_refresh_token
 
 # ——————————————————————————————
-# 1) Cargo .env y MongoDB
+# Cargo .env y MongoDB
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 MONGO_URI = os.getenv("MONGO_URI")
@@ -22,13 +22,31 @@ geocerca = db["geocerca"]
 
 ORBCOMM_ASSETS_URL = os.getenv("ORBCOMM_ASSETS_URL")
 
+data_file = Path(__file__).parent / "last_date.txt"
+
+# ——————————————————————————————
+# Funciones auxiliares
+def get_date_range():
+    today_local = date.today()
+    if data_file.exists():
+        last_str = data_file.read_text().strip()
+        last_date = date.fromisoformat(last_str)
+    else:
+        last_date = today_local - timedelta(days=2)
+    start = last_date + timedelta(days=1)
+    if start > today_local:
+        return None, None, today_local
+    return start, today_local, today_local
+
+def save_last_date(d: date):
+    data_file.write_text(d.isoformat())
+
 # ——————————————————————————————
 # Coroutine de fetch y store con reintentos
-async def fetch_and_store(token: str, max_retries=3):
-    today_str = date.today().isoformat()
+async def fetch_and_store(date_str: str, token: str, max_retries=3):
     payload = {
-        "fromDate": f"{today_str}T00:00:00.000-04:00",
-        "toDate": f"{today_str}T23:59:59.000-04:00",
+        "fromDate": f"{date_str}T00:00:00.000-04:00",
+        "toDate":   f"{date_str}T23:59:59.000-04:00",
         "assetNames": [],
         "assetGroupNames": [],
         "watermark": None
@@ -37,7 +55,7 @@ async def fetch_and_store(token: str, max_retries=3):
 
     for attempt in range(1, max_retries+1):
         try:
-            print(f"📤 Fetch {today_str} (Intento {attempt})")
+            print(f"📤 Fetch {date_str} (Intento {attempt})")
             resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=30)
 
             if resp.status_code == 401:
@@ -46,12 +64,12 @@ async def fetch_and_store(token: str, max_retries=3):
                 continue
 
             if resp.status_code == 423:
-                print("⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 5 minutos...")
+                print(f"⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
             if resp.status_code == 504:
-                print("⚠️ Error 504 Gateway Time-out, esperando 5 minutos...")
+                print(f"⚠️ Error 504 Gateway Time-out, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
@@ -61,7 +79,7 @@ async def fetch_and_store(token: str, max_retries=3):
 
             data = resp.json().get("data", [])
             if not data:
-                print(f"ℹ️ Sin datos hoy ({today_str})")
+                print(f"ℹ️ Sin datos en {date_str}")
                 return
 
             # — Procesar registros —
@@ -97,15 +115,34 @@ async def fetch_and_store(token: str, max_retries=3):
             print(f"⚠️ Intento {attempt} fallido: {e}")
             await asyncio.sleep(300)
 
+    # Pausa corta entre fechas para no saturar la API
+    await asyncio.sleep(5)
+
 # ——————————————————————————————
 # Función principal
 def main():
+    start, end, today_local = get_date_range()
+    if start is None:
+        print(f"ℹ️ Ya estás al día (última fecha procesada: {today_local})")
+        return
+
+    print(f"⌛ Descargando de {start.isoformat()} a {end.isoformat()}")
+
     async def runner():
-        try:
-            token = await get_or_refresh_token()
-            await fetch_and_store(token)
-        except Exception as e:
-            print(f"❌ Error en fetch: {e}")
+        current = start
+        while current <= end:
+            date_s = current.isoformat()
+            try:
+                token = await get_or_refresh_token()
+                await fetch_and_store(date_s, token)
+            except Exception as e:
+                print(f"❌ Error {date_s}: {e}")
+            current += timedelta(days=1)
+
+            # Guarda progreso cada fecha
+            save_last_date(current - timedelta(days=1))
+
+        print(f"🏁 Completado hasta {end}")
 
     asyncio.run(runner())
 
