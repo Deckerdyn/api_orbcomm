@@ -63,8 +63,8 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
                 headers["Authorization"] = token
                 continue
 
-            if resp.status_code == 423:
-                print(f"⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 5 minutos...")
+            if resp.status_code in (423, 429):
+                print(f"⚠️ Error {resp.status_code}: demasiadas solicitudes concurrentes o polling demasiado frecuente, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
@@ -115,8 +115,8 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
             print(f"⚠️ Intento {attempt} fallido: {e}")
             await asyncio.sleep(300)
 
-    # Pausa corta entre fechas para no saturar la API
-    await asyncio.sleep(5)
+    # Pausa entre fechas para cumplir la política de polling de 5 minutos
+    await asyncio.sleep(300)
 
 # ——————————————————————————————
 # Función principal
