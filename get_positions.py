@@ -21,31 +21,14 @@ positions_2 = db["positions_2"]
 geocerca = db["geocerca"]
 
 ORBCOMM_ASSETS_URL = os.getenv("ORBCOMM_ASSETS_URL")
-data_file = Path(__file__).parent / "last_date.txt"
-
-# ——————————————————————————————
-# Funciones auxiliares
-def get_date_range():
-    today_local = date.today()
-    if data_file.exists():
-        last_str = data_file.read_text().strip()
-        last_date = date.fromisoformat(last_str)
-    else:
-        last_date = today_local - timedelta(days=2)
-    start = last_date + timedelta(days=1)
-    if start > today_local:
-        return None, None, today_local
-    return start, today_local, today_local
-
-def save_last_date(d: date):
-    data_file.write_text(d.isoformat())
 
 # ——————————————————————————————
 # Coroutine de fetch y store con reintentos
-async def fetch_and_store(date_str: str, token: str, max_retries=3):
+async def fetch_and_store(token: str, max_retries=3):
+    today_str = date.today().isoformat()
     payload = {
-        "fromDate": f"{date_str}T00:00:00.000-04:00",
-        "toDate":   f"{date_str}T23:59:59.000-04:00",
+        "fromDate": f"{today_str}T00:00:00.000-04:00",
+        "toDate": f"{today_str}T23:59:59.000-04:00",
         "assetNames": [],
         "assetGroupNames": [],
         "watermark": None
@@ -54,8 +37,8 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
 
     for attempt in range(1, max_retries+1):
         try:
-            print(f"📤 Fetch {date_str} (Intento {attempt})")
-            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=300)
+            print(f"📤 Fetch {today_str} (Intento {attempt})")
+            resp = requests.post(ORBCOMM_ASSETS_URL, json=payload, headers=headers, timeout=30)
 
             if resp.status_code == 401:
                 token = await get_or_refresh_token()
@@ -63,12 +46,12 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
                 continue
 
             if resp.status_code == 423:
-                print(f"⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 5 min...")
+                print("⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
             if resp.status_code == 504:
-                print(f"⚠️ Error 504 Gateway Time-out, esperando 5 min...")
+                print("⚠️ Error 504 Gateway Time-out, esperando 5 minutos...")
                 await asyncio.sleep(300)
                 continue
 
@@ -78,7 +61,7 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
 
             data = resp.json().get("data", [])
             if not data:
-                print(f"ℹ️ Sin datos en {date_str}")
+                print(f"ℹ️ Sin datos hoy ({today_str})")
                 return
 
             # — Procesar registros —
@@ -108,48 +91,21 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
                     if not geocerca.find_one({"messageId": message_id}):
                         target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
 
-            break  # ✅ Si salió bien, salir del loop de reintentos
+            break  # ✅ Si salió bien, rompe el bucle de reintentos
 
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Intento {attempt} fallido: {e}")
             await asyncio.sleep(300)
 
-    await asyncio.sleep(300)  
-
 # ——————————————————————————————
 # Función principal
 def main():
-    start, end, today_local = get_date_range()
-    if start is None:
-        print(f"ℹ️ Ya estás al día (última fecha procesada: {today_local})")
-        return
-
-    print(f"⌛ Descargando de {start.isoformat()} a {end.isoformat()}")
-
     async def runner():
-        current = start
-        while current <= end:
-            # Descarga por bloques de 5 días
-            block_end = min(current + timedelta(days=4), end)
-            date_block = []
-            temp = current
-            while temp <= block_end:
-                date_block.append(temp)
-                temp += timedelta(days=1)
-
+        try:
             token = await get_or_refresh_token()
-            for d in date_block:
-                date_s = d.isoformat()
-                try:
-                    await fetch_and_store(date_s, token)
-                except Exception as e:
-                    print(f"❌ Error {date_s}: {e}")
-
-            # Guarda el progreso del último día del bloque
-            save_last_date(block_end)
-            current = block_end + timedelta(days=1)
-
-        print(f"🏁 Completado hasta {end}")
+            await fetch_and_store(token)
+        except Exception as e:
+            print(f"❌ Error en fetch: {e}")
 
     asyncio.run(runner())
 
