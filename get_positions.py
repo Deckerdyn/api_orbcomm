@@ -65,12 +65,12 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
 
             if resp.status_code == 423:
                 print(f"⚠️ Error 423: demasiadas solicitudes concurrentes, esperando 10s...")
-                await asyncio.sleep(10)
+                await asyncio.sleep(300)
                 continue
 
             if resp.status_code == 504:
                 print(f"⚠️ Error 504 Gateway Time-out, esperando 10s...")
-                await asyncio.sleep(10)
+                await asyncio.sleep(300)
                 continue
 
             if resp.status_code != 200:
@@ -114,10 +114,10 @@ async def fetch_and_store(date_str: str, token: str, max_retries=3):
 
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Intento {attempt} fallido: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(300)
 
     # Pausa corta entre fechas para no saturar la API
-    await asyncio.sleep(5)
+    await asyncio.sleep(300)
 
 # ——————————————————————————————
 # Función principal
