@@ -21,7 +21,7 @@ GPS_DEVICES = [
     {"numero_serie": "FSKC623020600", "modelo": "ORBCOMN"},
     {"numero_serie": "FJKB624330851", "modelo": "ORBCOMN"},
     {"numero_serie": "KAAB1242700077", "modelo": "ORBCOMN"},
-    {"numero_serie": "0-4799154", "modelo": "globalmini"}
+    {"numero_serie": "0-4799274", "modelo": "globalmini"}
 ]
 
 async def obtener_posicion_gps(
