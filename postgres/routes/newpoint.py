@@ -6,6 +6,7 @@ from ..database import SessionLocal
 from ..auth.auth import get_current_user #Importamos para proteccion de rutas
 from dotenv import load_dotenv
 from typing import Dict, List
+from datetime import datetime, timedelta
 import asyncio
 import httpx
 import os
@@ -14,14 +15,15 @@ load_dotenv()
 
 router = APIRouter()
 
-ipServidor = os.getenv("IPSERVIDOR","http://10.30.7.14:8002")
+ipServidor = "http://10.30.7.14:8001"
 fechaEntrega = "2025-09-25"
 
 GPS_DEVICES = [
     {"numero_serie": "FSKC623020600", "modelo": "ORBCOMN"},
     {"numero_serie": "FJKB624330851", "modelo": "ORBCOMN"},
     {"numero_serie": "KAAB1242700077", "modelo": "ORBCOMN"},
-    {"numero_serie": "0-4799274", "modelo": "globalmini"}
+    {"numero_serie": "0-4799274", "modelo": "globalmini"},
+    {"numero_serie": "0-4799154", "modelo": "globalmini"},
 ]
 
 async def obtener_posicion_gps(
@@ -69,6 +71,38 @@ async def obtener_posicion_gps(
         "posicion": posicion_gps
     }
 
+async def obtener_posicion_gps_globalmini(
+        client: httpx.AsyncClient,
+        esn: str
+    ) -> Dict:
+    
+    posicion_gps = None
+    
+    try:
+        url = f"{ipServidor}/globalMini/ultimaPosicion/{esn}"
+        print(url)
+        response = await client.get(url, timeout=10.0)
+        response.raise_for_status()
+        
+        data = response.json()
+        if isinstance(data, dict) and "Latitude" in data and "Longitude" in data:
+            #restar 3 horas a data["time_stamp"] formato "time_stamp": "21/10/2025 17:08:13 GMT" para que coincida con la hora de la entrega
+            tiempo3horas = datetime.strptime(data["time_stamp"], '%d/%m/%Y %H:%M:%S GMT')
+            nuevotiempo = tiempo3horas - timedelta(hours=3)
+            nuevoTiempoTransformado = nuevotiempo.strftime('%d/%m/%Y %H:%M:%S GMT')
+            
+            posicion_gps = {
+                "Latitude": data["Latitude"],
+                "Longitude": data["Longitude"],
+                "time_stamp": nuevoTiempoTransformado
+            }
+    except httpx.HTTPError as e:
+        print(f"Error HTTP al obtener datos del GPS GlobalMini: {e}")
+    except Exception as e:
+        print(f"Error inesperado al procesar datos del GPS GlobalMini: {e}")
+        
+    return posicion_gps
+
 @router.get("/gps-todos")
 async def obtener_todas_las_posiciones() -> List[Dict]:
     
@@ -95,4 +129,34 @@ async def obtener_todas_las_posiciones() -> List[Dict]:
         )
         
     return todas_las_posiciones
+
+
+@router.get("/gps-globalmini-aqua")
+async def obtener_posicion_globalmini() -> Dict:
+    
+    async with httpx.AsyncClient() as client:
+        posicion_gps = await obtener_posicion_gps_globalmini(client,GPS_DEVICES[3]['numero_serie'])
+    
+    if not posicion_gps:
+        raise HTTPException(
+            status_code=404,
+            detail="No se pudo obtener la ubicación del GPS GlobalMini. Revisa las configuraciones."
+        )
+    
+    return posicion_gps
+
+@router.get("/gps-globalmini-ast")
+async def obtener_posicion_globalmini() -> Dict:
+    
+    async with httpx.AsyncClient() as client:
+        posicion_gps = await obtener_posicion_gps_globalmini(client,GPS_DEVICES[4]['numero_serie'])
+    
+    if not posicion_gps:
+        raise HTTPException(
+            status_code=404,
+            detail="No se pudo obtener la ubicación del GPS GlobalMini. Revisa las configuraciones."
+        )
+    
+    return posicion_gps
+
 
