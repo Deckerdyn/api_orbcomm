@@ -159,3 +159,4 @@ async def obtener_posicion_globalmini() -> Dict:
     
     return posicion_gps
 
+
