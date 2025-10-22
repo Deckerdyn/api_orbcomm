@@ -76,32 +76,19 @@ async def obtener_posicion_gps_globalmini(
         esn: str
     ) -> Dict:
     
-    posicion_gps = None
     
     try:
-        url = f"{ipServidor}/globalMini/ultimaPosicion/{esn}"
-        print(url)
+        url = f"{ipServidor}/globalMini/ultimos_datos/{esn}"
         response = await client.get(url, timeout=10.0)
         response.raise_for_status()
         
         data = response.json()
-        if isinstance(data, dict) and "Latitude" in data and "Longitude" in data:
-            #restar 3 horas a data["time_stamp"] formato "time_stamp": "21/10/2025 17:08:13 GMT" para que coincida con la hora de la entrega
-            tiempo3horas = datetime.strptime(data["time_stamp"], '%d/%m/%Y %H:%M:%S GMT')
-            nuevotiempo = tiempo3horas - timedelta(hours=3)
-            nuevoTiempoTransformado = nuevotiempo.strftime('%d/%m/%Y %H:%M:%S GMT')
-            
-            posicion_gps = {
-                "Latitude": data["Latitude"],
-                "Longitude": data["Longitude"],
-                "time_stamp": nuevoTiempoTransformado
-            }
     except httpx.HTTPError as e:
         print(f"Error HTTP al obtener datos del GPS GlobalMini: {e}")
     except Exception as e:
         print(f"Error inesperado al procesar datos del GPS GlobalMini: {e}")
         
-    return posicion_gps
+    return data
 
 @router.get("/gps-todos")
 async def obtener_todas_las_posiciones() -> List[Dict]:
