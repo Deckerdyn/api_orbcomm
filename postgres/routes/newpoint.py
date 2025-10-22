@@ -15,7 +15,7 @@ load_dotenv()
 
 router = APIRouter()
 
-ipServidor = "http://10.30.7.14:8001"
+ipServidor = os.getenv("IPSERVIDOR","http://10.30.7.14:8001")
 fechaEntrega = "2025-09-25"
 
 GPS_DEVICES = [
