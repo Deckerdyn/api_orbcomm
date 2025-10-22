@@ -8,7 +8,7 @@ import requests
 import os
 from pymongo import DESCENDING
 import pytz
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from math import radians, cos, sin, asin, sqrt
 
 # ——————————————————————————————
@@ -180,6 +180,86 @@ async def get_last_position_globalmini(esn: str):
         result["_id"] = str(result["_id"])
         
     return result
+
+@app.get("/globalMini/ultimos_datos/{esn}")
+async def get_last_data_globalmini(esn: str):
+    pipeline = [
+        {
+            "$match": {
+                "esn": esn
+            }
+        },
+        {
+            "$addFields": {
+                "cleaned_time_string": {
+                    "$substrCP": [
+                        "$time_stamp", 
+                        0,             
+                        { "$subtract": [{ "$strLenCP": "$time_stamp" }, 4] } 
+                    ]
+                }
+            }
+        },
+        {
+            
+            "$addFields": {
+                "converted_time": {
+                    "$dateFromString": {
+                        "dateString": "$cleaned_time_string",                       
+                        "format": "%d/%m/%Y %H:%M:%S",
+                        "timezone": "UTC" 
+                    }
+                }
+            }
+        },
+        {
+            "$addFields": {
+                "adjusted_time": {
+                    "$dateSubtract": {
+                        "startDate": "$converted_time",
+                        "unit": "minute",
+                        "amount": 180 
+                    }
+                }
+            }
+        },
+        {
+            "$sort": {
+                "adjusted_time": -1 
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "Latitude": 1,
+                "Longitude": 1,
+                "time_stamp": {
+                    "$dateToString": {
+                        "format": "%Y-%m-%d %H:%M:%S", 
+                        "date": "$adjusted_time"
+                    }
+                }
+            }
+        } 
+    ]
+    
+    try:
+        results: List[Dict[str, Any]] = list(dataglobalmini_collection.aggregate(pipeline))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al ejecutar la consulta en la base de datos: {e}")
+    
+    latest_data = results[0]
+    
+    resultado = {
+        "Latitude": latest_data.get("Latitude"),
+        "Longitude": latest_data.get("Longitude"),
+        "time_stamp": latest_data.get("time_stamp"),
+        "historico": results 
+    }
+    
+    results.pop(0)
+    
+    return resultado
 
 @app.get("/api/globalMini/dataFechaHora/{fecha_hora}")
 async def get_data_globalmini(fecha_hora: str):
