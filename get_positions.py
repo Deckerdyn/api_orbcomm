@@ -134,11 +134,22 @@ def main():
             try:
                 token = await get_or_refresh_token()
                 # Franjas de 2 horas
-                for from_h in range(0, 24, 2):
-                    to_h = from_h + 2
+                # Si es la fecha de hoy, solo procesar hasta la hora actual
+                limit_hour = 24
+                if current == today_local:
+                    now_hour = datetime.now().hour
+                    # Redondea hacia arriba a la siguiente franja par (ej: 15 → 16)
+                    limit_hour = (now_hour + 1) if (now_hour + 1) % 2 == 0 else (now_hour + 2)
+
+                # Franjas de 2 horas hasta limit_hour
+                for from_h in range(0, limit_hour, 2):
+                    to_h = min(from_h + 2, limit_hour)
                     await fetch_and_store(date_s, from_h, to_h, token)
-                # Guardar progreso solo si todas las franjas se completaron
-                save_last_date(current)
+
+                # Guardar progreso solo si NO es hoy (para forzar refrescar hoy en próximos ciclos)
+                if current < today_local:
+                    save_last_date(current)
+
             except Exception as e:
                 print(f"❌ Error {date_s}: {e}")
             current += timedelta(days=1)
