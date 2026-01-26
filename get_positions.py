@@ -4,7 +4,7 @@ import requests
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pymongo import MongoClient
 from main import get_or_refresh_token
 
@@ -84,10 +84,23 @@ async def fetch_and_store(date_str: str, from_hour: int, to_hour: int, token: st
             # — Procesar registros —
             for rec in data:
                 try:
-                    message_stamp = rec.get("assetStatus", {}).get("messageStamp")
+                    asset_status = rec.get("assetStatus", {})
+                    message_stamp = asset_status.get("messageStamp")
+                    print(f"🔄 Procesando messageStamp: {message_stamp} ")
+
                     if message_stamp and "/" in message_stamp and ("AM" in message_stamp or "PM" in message_stamp):
                         dt = datetime.strptime(message_stamp, "%m/%d/%Y %I:%M:%S %p")
+                        
                         rec["assetStatus"]["messageStamp"] = dt.strftime("%Y-%m-%dT%H:%M:%S.000-04:00")
+                        
+                        tz_origen = timezone(timedelta(hours=-4))
+                        dt_con_tz = dt.replace(tzinfo=tz_origen)
+                        dt_utc = dt_con_tz.astimezone(timezone.utc)
+                        print(f"entre a procesar el messageStamp")
+                        
+                        # ESTO es lo que se guarda como fecha real en la BD
+                        rec["assetStatus"]["messageStamp_dt"] = dt_utc
+                        
                 except Exception as e:
                     print(f"⚠️ Error al convertir assetStatus.messageStamp: {message_stamp} -> {e}")
 
@@ -131,16 +144,20 @@ def main():
             date_s = current.isoformat()
             try:
                 token = await get_or_refresh_token()
-
+                # Franjas de 2 horas
+                # Si es la fecha de hoy, solo procesar hasta la hora actual
                 limit_hour = 24
                 if current == today_local:
                     now_hour = datetime.now().hour
+                    # Redondea hacia arriba a la siguiente franja par (ej: 15 → 16)
                     limit_hour = (now_hour + 1) if (now_hour + 1) % 2 == 0 else (now_hour + 2)
 
+                # Franjas de 2 horas hasta limit_hour
                 for from_h in range(0, limit_hour, 2):
                     to_h = min(from_h + 2, limit_hour)
                     await fetch_and_store(date_s, from_h, to_h, token)
 
+                # Guardar progreso solo si NO es hoy (para forzar refrescar hoy en próximos ciclos)
                 if current < today_local:
                     save_last_date(current)
 
