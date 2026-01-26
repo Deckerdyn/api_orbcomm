@@ -96,17 +96,15 @@ async def fetch_and_store(date_str: str, from_hour: int, to_hour: int, token: st
                 asset_name = rec.get("assetName")
                 status = (geofence_status or "").strip().upper()
 
+                # Determinar colección destino principal
                 target_collection = positions_2 if asset_name == "FSKC623020600" else positions
 
-                if status in ("ARRIVAL", "IN"):
+                # 🟢 SIEMPRE guardar en histórico general
+                target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
+
+                # 🔵 Si es evento de geocerca, también guardarlo en colección geocerca
+                if status in ("ARRIVAL", "IN", "DEPARTURE"):
                     geocerca.replace_one({"messageId": message_id}, rec, upsert=True)
-                    target_collection.delete_one({"messageId": message_id})
-                elif status == "DEPARTURE":
-                    geocerca.replace_one({"messageId": message_id}, rec, upsert=True)
-                    target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
-                else:
-                    if not geocerca.find_one({"messageId": message_id}):
-                        target_collection.replace_one({"messageId": message_id}, rec, upsert=True)
 
             break  # ✅ Si salió bien, rompe el bucle de reintentos
 
@@ -133,20 +131,16 @@ def main():
             date_s = current.isoformat()
             try:
                 token = await get_or_refresh_token()
-                # Franjas de 2 horas
-                # Si es la fecha de hoy, solo procesar hasta la hora actual
+
                 limit_hour = 24
                 if current == today_local:
                     now_hour = datetime.now().hour
-                    # Redondea hacia arriba a la siguiente franja par (ej: 15 → 16)
                     limit_hour = (now_hour + 1) if (now_hour + 1) % 2 == 0 else (now_hour + 2)
 
-                # Franjas de 2 horas hasta limit_hour
                 for from_h in range(0, limit_hour, 2):
                     to_h = min(from_h + 2, limit_hour)
                     await fetch_and_store(date_s, from_h, to_h, token)
 
-                # Guardar progreso solo si NO es hoy (para forzar refrescar hoy en próximos ciclos)
                 if current < today_local:
                     save_last_date(current)
 
